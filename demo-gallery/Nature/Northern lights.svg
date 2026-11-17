@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="Demo landscape: Northern lights">
+  <defs><linearGradient id="sky742288" x2="0" y2="1"><stop offset="0" stop-color="#294f77"/><stop offset="1" stop-color="#141f54"/></linearGradient>
+  <linearGradient id="ground742288" x2="0" y2="1"><stop stop-color="#287c82"/><stop offset="1" stop-color="#212346"/></linearGradient></defs>
+  <rect width="1200" height="800" fill="url(#sky742288)"/>
+  <circle cx="50" cy="40" r="1" fill="#fff" opacity=".45"/><circle cx="141" cy="83" r="2" fill="#fff" opacity=".45"/><circle cx="232" cy="126" r="3" fill="#fff" opacity=".45"/><circle cx="323" cy="169" r="1" fill="#fff" opacity=".45"/><circle cx="414" cy="212" r="2" fill="#fff" opacity=".45"/><circle cx="505" cy="55" r="3" fill="#fff" opacity=".45"/><circle cx="596" cy="98" r="1" fill="#fff" opacity=".45"/><circle cx="687" cy="141" r="2" fill="#fff" opacity=".45"/><circle cx="778" cy="184" r="3" fill="#fff" opacity=".45"/><circle cx="869" cy="227" r="1" fill="#fff" opacity=".45"/><circle cx="960" cy="70" r="2" fill="#fff" opacity=".45"/><circle cx="444" cy="218" r="83" fill="#ffefd2" opacity=".74"/>
+  <path d="M0 595 L160 390 L335 577 L480 295 L670 557 L800 330 L1015 550 L1130 410 L1200 510 V800 H0Z" fill="#287c82" opacity=".77"/>
+  <path d="M0 640 Q155 540 290 630 Q480 490 640 615 Q780 540 925 635 Q1090 550 1200 630 V800 H0 Z" fill="url(#ground742288)"/>
+  <path d="M0 70 Q300 260 640 80 T1200 50" stroke="#53ffd1" stroke-width="95" fill="none" opacity=".28"/><path d="M0 770 Q340 741 570 770 T1200 756 V800 H0Z" fill="#212346" opacity=".56"/>
+  </svg>
