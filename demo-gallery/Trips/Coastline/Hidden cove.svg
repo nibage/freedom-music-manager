@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="Demo landscape: Hidden cove">
+  <defs><linearGradient id="sky856532" x2="0" y2="1"><stop offset="0" stop-color="#88cfef"/><stop offset="1" stop-color="#def7ff"/></linearGradient>
+  <linearGradient id="ground856532" x2="0" y2="1"><stop stop-color="#4a97b5"/><stop offset="1" stop-color="#216c88"/></linearGradient></defs>
+  <rect width="1200" height="800" fill="url(#sky856532)"/>
+  <circle cx="528" cy="218" r="83" fill="#ffefd2" opacity=".74"/>
+  <path d="M0 595 L160 390 L335 577 L480 295 L670 557 L800 330 L1015 550 L1130 410 L1200 510 V800 H0Z" fill="#4a97b5" opacity=".77"/>
+  <path d="M0 640 Q155 540 290 630 Q480 490 640 615 Q780 540 925 635 Q1090 550 1200 630 V800 H0 Z" fill="url(#ground856532)"/>
+  <path d="M0 650 Q150 630 300 651 T600 653 T900 649 T1200 653 V800 H0 Z" fill="#5caac5" opacity=".58"/><path d="M0 691 Q200 675 400 689 T800 682 T1200 688" stroke="#f2fafc" stroke-width="5" fill="none" opacity=".57"/><path d="M0 770 Q340 741 570 770 T1200 756 V800 H0Z" fill="#216c88" opacity=".56"/>
+  </svg>

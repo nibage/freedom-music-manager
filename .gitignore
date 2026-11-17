@@ -1,17 +1,15 @@
-# If this repository is inside a photo library, never commit personal media/metadata.
-# Only source files, documentation and placeholder directories are allowed.
+# Only the app and the bundled demo gallery are publishable by default.
 *
 !.gitignore
 !README.md
 !__gallery/
 __gallery/*
 !__gallery/index.html
-!__gallery/albums/
-__gallery/albums/*
-!__gallery/albums/.gitkeep
-!__gallery/thumbs/
-__gallery/thumbs/*
-!__gallery/thumbs/.gitkeep
-!__gallery/backups/
-__gallery/backups/*
-!__gallery/backups/.gitkeep
+!demo-gallery/
+!demo-gallery/**/
+!demo-gallery/**/*.svg
+!demo-gallery/README.md
+!demo-gallery/__gallery/data/favorites.txt
+!demo-gallery/__gallery/data/tags.tsv
+!demo-gallery/__gallery/data/albums/*.txt
+# Any generated demo thumbnails / media indexes remain ignored.
