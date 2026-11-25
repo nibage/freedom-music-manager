@@ -993,6 +993,31 @@ body {padding-bottom:var(--music-player-height)}
 }
 @media(max-width:420px){.detailed-mode #gallery .photo{grid-template-columns:64px minmax(0,1fr) 32px 28px;gap:4px}.detailed-mode #gallery .video-tile{width:64px;height:64px}}
 
+
+/* Ordered music collections and playback queue. */
+#musicPlayer #playerQueueButton {font-size:12px;white-space:nowrap}
+#musicPlayer .player-toggle[aria-pressed=true] {border-color:var(--accent);color:var(--accent);font-weight:700}
+#musicQueueDialog {width:min(760px,96vw);max-width:96vw;max-height:90dvh;background:var(--panel);color:var(--text)}
+#musicQueueDialog .queue-body {padding:18px;display:flex;flex-direction:column;gap:12px;max-height:88dvh;overflow:auto}
+.queue-heading,.queue-actions,.queue-playlist,.queue-row {display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:wrap}
+.queue-heading h2 {margin:0;flex:1;font-size:18px}
+.queue-actions .btn,.queue-playlist .btn,.queue-row .btn {font-size:12px;padding:6px 9px}
+.queue-playlist input,.queue-playlist select {min-width:120px;max-width:100%;flex:1;padding:7px 8px;font-size:13px}
+.queue-list {border:1px solid var(--line);border-radius:8px;max-height:35dvh;overflow:auto}
+.queue-row {flex-wrap:nowrap;padding:7px 8px;border-bottom:1px solid var(--line)}
+.queue-row:last-child {border-bottom:0}
+.queue-row.is-current {background:color-mix(in srgb,var(--accent) 12%,var(--panel))}
+.queue-row .queue-track-label {flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.queue-track-label small {display:block;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.queue-number {min-width:25px;text-align:right;color:var(--muted);font-size:11px}
+.queue-empty {padding:12px;color:var(--muted);font-size:13px}
+.queue-history-summary {cursor:pointer;font-weight:600;font-size:13px}
+.queue-history-summary + div {margin-top:8px}
+#queueFeedback {font-size:12px;color:var(--muted);min-height:1.3em}
+#viewer .stage .viewer-queue-actions {display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+#viewer .stage .viewer-queue-actions button {position:static;transform:none;font-size:12px;padding:6px 9px}
+@media(max-width:760px){.player-transport {gap:4px;flex-wrap:wrap}#musicPlayer .player-icon{min-width:30px;padding:4px 6px}}
+
 </style>
 </head>
 <body>
@@ -1063,7 +1088,8 @@ body {padding-bottom:var(--music-player-height)}
       <datalist id="knownTags"></datalist>
       <button class="btn" id="bulkAddTag" type="button" title="Apply this tag to every selected file">Add tag</button>
       <button class="btn" id="bulkTrash" type="button" title="Move selected files to the in-gallery Trash without deleting original files from disk.">Move to Trash</button>
-      <button class="btn" id="clearSelection" type="button" title="Clear the selection and return to normal single-photo opening.">✕ Clear selection</button>
+      <button class="btn" id="bulkQueue" type="button">＋ Queue</button><button class="btn" id="bulkPlayNext" type="button">Play next</button>
+       <button class="btn" id="clearSelection" type="button" title="Clear the selection and return to normal single-photo opening.">✕ Clear selection</button>
     </div>
     <div id="gallery" class="grid"></div>
     <button class="btn" id="loadMore" hidden>Load more</button>
@@ -1091,6 +1117,9 @@ body {padding-bottom:var(--music-player-height)}
       <button id="playerPlay" class="btn player-icon player-main" title="Play or pause" aria-label="Play" disabled>▶</button>
       <button id="playerNext" class="btn player-icon" title="Next track" aria-label="Next track" disabled>⏭</button>
       <button id="playerStop" class="btn player-icon" title="Stop playback" aria-label="Stop" disabled>■</button>
+      <button id="playerShuffle" class="btn player-icon player-toggle" title="Shuffle upcoming tracks" aria-label="Shuffle" aria-pressed="false">⇄</button>
+      <button id="playerRepeat" class="btn player-icon player-toggle" title="Repeat off" aria-label="Repeat off" aria-pressed="false">↻</button>
+      <button id="playerQueueButton" class="btn" title="Manage queue, playlists and history">Queue (0)</button>
     </div>
     <div class="player-timeline">
       <span id="playerElapsed">0:00</span><input id="playerSeek" type="range" min="0" max="1" step="0.1" value="0" aria-label="Playback position in seconds" disabled><span id="playerDuration">0:00</span>
@@ -1103,9 +1132,23 @@ body {padding-bottom:var(--music-player-height)}
   </div>
   <audio id="bigVideo" preload="metadata" hidden></audio>
 </footer>
+
+<dialog id="musicQueueDialog" aria-labelledby="musicQueueTitle">
+  <div class="queue-body">
+    <div class="queue-heading"><h2 id="musicQueueTitle">Queue &amp; playlists</h2><button class="btn" id="queueClose" type="button" aria-label="Close queue">✕</button></div>
+    <div class="queue-actions"><button class="btn" id="queuePlay" type="button">▶ Play / pause</button><button class="btn" id="queueAddResults" type="button">＋ Current results</button><button class="btn" id="queueClear" type="button">Clear queue</button><span id="queueCount" class="small"></span></div>
+    <div id="queueList" class="queue-list" aria-label="Playback queue"></div>
+    <div class="queue-actions"><button class="btn" id="queuePagePrev" type="button">Previous page</button><span id="queuePageLabel" class="small"></span><button class="btn" id="queuePageNext" type="button">Next page</button></div>
+    <div class="queue-heading"><strong>Saved playlists</strong></div>
+    <div class="queue-playlist"><select id="playlistSelect" aria-label="Saved playlists"><option value="">Choose playlist…</option></select><button class="btn" id="playlistLoad" type="button">Load queue</button><button class="btn" id="playlistAppend" type="button">Append</button><button class="btn" id="playlistDelete" type="button">Delete</button></div>
+    <div class="queue-playlist"><input id="playlistName" maxlength="80" placeholder="Playlist name" aria-label="Playlist name"><button class="btn" id="playlistSave" type="button">Save queue as playlist</button></div>
+    <details id="historyDetails"><summary class="queue-history-summary">Listening history</summary><div class="queue-actions"><button class="btn" id="historyClear" type="button">Clear history</button></div><div class="queue-list" id="historyList"></div></details>
+    <div id="queueFeedback" aria-live="polite"></div>
+  </div>
+</dialog>
 <dialog id="viewer">
   <div class="viewer">
-    <div class="stage" id="viewerStage"><button id="prev" title="Previous (←)">‹</button><img id="bigImage" alt="Album cover" hidden><button id="viewerPlayTrack" type="button" class="btn" aria-label="Play this track">▶ Play track</button><button id="next" title="Next (→)">›</button></div>
+    <div class="stage" id="viewerStage"><button id="prev" title="Previous (←)">‹</button><img id="bigImage" alt="Album cover" hidden><button id="viewerPlayTrack" type="button" class="btn" aria-label="Play this track">▶ Play track</button><div class="viewer-queue-actions"><button id="viewerQueueTrack" type="button" class="btn">＋ Queue</button><button id="viewerPlayNext" type="button" class="btn">Play next</button></div><button id="next" title="Next (→)">›</button></div>
     <section class="details">
       <button class="close" id="closeViewer" title="Close (Esc)">×</button>
       <h2 id="fileLabel"></h2><div id="musicViewerMetadata"></div><div id="pathLabel"></div>
@@ -1496,6 +1539,8 @@ async function migrateMoves(selected,next){
   const tasks=[];
   if(favChanged)tasks.push(saveFavorites());if(tagsChanged)tasks.push(saveTags());if(trashChanged)tasks.push(saveTrash());
   for(const name of changedAlbums)tasks.push(saveAlbum(name));
+  const musicMoves=new Map(selected.map(({from,to})=>[from,to]));
+  if(musicCollectionsWritable){for(const [name,paths] of musicPlaylists)musicPlaylists.set(name,remapMusicPaths(paths,musicMoves));playerHistory=playerHistory.map(x=>({...x,path:musicMoves.get(x.path)||x.path}));tasks.push(saveMusicCollections());}
   await Promise.all(tasks);
   await flushThumbManifest();renderTagList();return selected.length;
 }
@@ -1858,9 +1903,37 @@ function snapshotTracks(items,path,isEligible){
   if(!result.includes(path)&&isEligible(path))result.push(path);
   return result;
 }
+
+function nextQueueTrack(queue,path,step,eligible,repeat='off'){
+  const next=adjacentTrack(queue,path,step,eligible);if(next)return next;
+  if(repeat!=='all'||!queue.includes(path))return null;
+  return (step>0?queue:[...queue].reverse()).find(eligible)||null;
+}
+function queueInsert(queue,paths,current,next,eligible){
+  const add=[...new Set(paths.filter(p=>p!==current&&eligible(p)))];
+  if(!next)return [...queue,...add.filter(p=>!queue.includes(p))];
+  const out=queue.filter(p=>!add.includes(p)),at=out.indexOf(current)+1;
+  out.splice(at,0,...add);return out;
+}
+function shuffleUpcoming(queue,current,random=Math.random){
+  const at=queue.indexOf(current)+1,out=queue.slice(),tail=out.slice(at);
+  for(let i=tail.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[tail[i],tail[j]]=[tail[j],tail[i]]}
+  return out.slice(0,at).concat(tail);
+}
+function restoreUpcoming(queue,current,original){
+  const at=queue.indexOf(current)+1,rank=new Map(original.map((p,i)=>[p,i]));
+  return queue.slice(0,at).concat(queue.slice(at).sort((a,b)=>(rank.get(a)??Infinity)-(rank.get(b)??Infinity)));
+}
+function moveQueueEntry(queue,index,step,current){
+  const j=index+step;if(index<0||index>=queue.length||j<0||j>=queue.length||queue[index]===current||queue[j]===current)return queue.slice();
+  const out=queue.slice();[out[index],out[j]]=[out[j],out[index]];return out;
+}
+function remapMusicPaths(paths,moves){return [...new Set(paths.map(p=>moves.get(p)||p))]}
+
 /* END MUSIC PLAYER LOGIC */
 let playerPath=null,playerQueue=[],playerURL=null,playerRequest=0,playerLoading=false,playerWantsPlay=false,playerSeekActive=false;
 let lastPlayerVolume=.75;
+let playerRepeat='off',playerShuffle=false,playerOriginalOrder=[],playerHistory=[],musicPlaylists=new Map(),musicCollectionsWritable=false,musicHistoryRequest=-1,queuePage=0;
 const playerAudio=el('bigVideo');
 const playerVolumeKey='freedom-music-volume:'+GALLERY_URL;
 const playerEligible=p=>byPath.has(p)&&!trash.has(p);
@@ -1879,11 +1952,11 @@ function updatePlayerTrack(){
 function updatePlayerControls(){
   const active=!!playerPath,playing=active&&(playerLoading?playerWantsPlay:!playerAudio.paused&&!playerAudio.ended);
   el('playerPlay').textContent=playing?'Ⅱ':'▶';el('playerPlay').setAttribute('aria-label',playing?'Pause':'Play');
-  el('playerPlay').disabled=!active&&!filtered.some(x=>playerEligible(x.path));
+  el('playerPlay').disabled=!active&&!playerQueue.some(playerEligible)&&!filtered.some(x=>playerEligible(x.path));
   el('playerStop').disabled=!active;el('playerDetails').disabled=!active;
-  el('playerPrev').disabled=!active||(!adjacentTrack(playerQueue,playerPath,-1,playerEligible)&&playerAudio.currentTime<3);
-  el('playerNext').disabled=!active||!adjacentTrack(playerQueue,playerPath,1,playerEligible);
-  if(el('viewer').open){const same=active&&currentPath===playerPath;el('viewerPlayTrack').textContent=same&&playing?'Ⅱ Pause track':'▶ Play track';el('viewerPlayTrack').disabled=!currentPath||!playerEligible(currentPath)}
+  el('playerPrev').disabled=!active||(!nextPlayerPath(-1)&&playerAudio.currentTime<3);
+  el('playerNext').disabled=!active||!nextPlayerPath(1);
+  if(el('viewer').open){const same=active&&currentPath===playerPath;el('viewerPlayTrack').textContent=same&&playing?'Ⅱ Pause track':'▶ Play track';el('viewerPlayTrack').disabled=!currentPath||!playerEligible(currentPath);el('viewerQueueTrack').disabled=el('viewerPlayNext').disabled=el('viewerPlayTrack').disabled}
   for(const [path,card] of musicCardsByPath){card.classList.toggle('is-playing',path===playerPath);const play=card.querySelector('.play');if(play)play.textContent=path===playerPath&&playing?'Ⅱ':'▶'}
 }
 function updatePlayerTime(){
@@ -1898,7 +1971,8 @@ function releasePlayerSource(){
 }
 function stopMusic(clear=true){
   ++playerRequest;playerLoading=false;playerWantsPlay=false;playerSeekActive=false;releasePlayerSource();
-  if(clear){playerPath=null;playerQueue=[]}
+  if(clear){playerPath=null;playerQueue=[];resetQueueOrder()}
+  queueChanged();
   updatePlayerTrack();updatePlayerTime();
 }
 async function resumePlayer(){
@@ -1910,7 +1984,7 @@ async function resumePlayer(){
 async function startTrack(path,newQueue=true){
   if(!playerEligible(path)||deletingMedia)return;
   if(path===playerPath&&(playerURL||playerLoading)){
-    if(newQueue)playerQueue=snapshotTracks(filtered,path,playerEligible);
+    if(newQueue)currentQueueSnapshot(path);
     if(playerLoading){playerWantsPlay=true;updatePlayerControls();return}
     if(playerAudio.ended)playerAudio.currentTime=0;
     await resumePlayer();return;
@@ -1919,7 +1993,7 @@ async function startTrack(path,newQueue=true){
   playerLoading=true;playerWantsPlay=true;playerSeekActive=false;
   releasePlayerSource();
   playerPath=path;
-  if(newQueue)playerQueue=snapshotTracks(filtered,path,playerEligible);
+  if(newQueue)currentQueueSnapshot(path);else queueChanged();
   updatePlayerTrack();updatePlayerTime();
   try{
     const file=await itemFile(item);
@@ -1934,7 +2008,7 @@ async function startTrack(path,newQueue=true){
 }
 function toggleMusic(){
   if(playerLoading){playerWantsPlay=!playerWantsPlay;updatePlayerControls();return}
-  if(!playerPath){const first=filtered.find(x=>playerEligible(x.path));if(first)void startTrack(first.path);return}
+  if(!playerPath){const queued=playerQueue.find(playerEligible);if(queued)void startTrack(queued,false);else{const first=filtered.find(x=>playerEligible(x.path));if(first)void startTrack(first.path)}return}
   if(!playerURL){void startTrack(playerPath,false);return}
   if(playerAudio.paused||playerAudio.ended){if(playerAudio.ended)playerAudio.currentTime=0;void resumePlayer()}
   else {playerAudio.pause();playerWantsPlay=false;updatePlayerControls()}
@@ -1942,11 +2016,11 @@ function toggleMusic(){
 function stepMusic(step){
   if(!playerPath)return;
   if(step<0&&playerAudio.currentTime>=3){playerAudio.currentTime=0;updatePlayerTime();return}
-  const next=adjacentTrack(playerQueue,playerPath,step,playerEligible);
-  if(next)void startTrack(next,false);
+  const next=nextPlayerPath(step);
+  if(next===playerPath){playerAudio.currentTime=0;void resumePlayer()}else if(next)void startTrack(next,false);
 }
 function reconcileMusicPlayer(){
-  if(playerPath&&!playerEligible(playerPath)){stopMusic();return}
+  if(playerPath&&!playerEligible(playerPath)){stopMusic(false);playerPath=null;queueChanged();updatePlayerTrack();return}
   if(playerPath&&el('playerCover').dataset.path!==playerPath)updatePlayerTrack();
   else updatePlayerControls();
 }
@@ -1960,7 +2034,7 @@ function initMusicPlayer(){
   try{const v=localStorage.getItem(playerVolumeKey);if(v!==null&&Number.isFinite(+v))lastPlayerVolume=Math.max(0,Math.min(1,+v))}catch(_){}
   playerAudio.volume=lastPlayerVolume;applyPlayerVolume();
   el('playerCover').src=DEFAULT_COVER;el('playerCover').dataset.path='';
-  el('playerPlay').onclick=toggleMusic;el('playerStop').onclick=()=>stopMusic();
+  el('playerPlay').onclick=toggleMusic;el('playerStop').onclick=()=>stopMusic(false);
   el('playerPrev').onclick=()=>stepMusic(-1);el('playerNext').onclick=()=>stepMusic(1);
   el('playerDetails').onclick=()=>{if(playerPath)void openViewer(playerPath)};
   el('viewerPlayTrack').onclick=()=>{if(currentPath===playerPath)toggleMusic();else if(currentPath)void startTrack(currentPath)};
@@ -1970,13 +2044,180 @@ function initMusicPlayer(){
   el('playerMute').onclick=()=>{if(playerAudio.volume===0){playerAudio.volume=lastPlayerVolume||.75;playerAudio.muted=false}else playerAudio.muted=!playerAudio.muted;applyPlayerVolume()};
   playerAudio.addEventListener('volumechange',applyPlayerVolume);
   for(const event of ['play','pause','ended','loadedmetadata','durationchange','emptied','error'])playerAudio.addEventListener(event,()=>{updatePlayerControls();updatePlayerTime()});
-  playerAudio.addEventListener('timeupdate',()=>{updatePlayerTime();el('playerPrev').disabled=!playerPath||(!adjacentTrack(playerQueue,playerPath,-1,playerEligible)&&playerAudio.currentTime<3)});
+  playerAudio.addEventListener('timeupdate',()=>{updatePlayerTime();el('playerPrev').disabled=!playerPath||(!nextPlayerPath(-1)&&playerAudio.currentTime<3)});
   playerAudio.addEventListener('loadedmetadata',()=>{const item=byPath.get(playerPath),n=playerAudio.duration;if(item&&Number.isFinite(n)&&n>0){item.music={...item.music,duration:n};refreshMusicCaption(item)}});
-  playerAudio.addEventListener('ended',()=>{const next=adjacentTrack(playerQueue,playerPath,1,playerEligible);if(next)void startTrack(next,false)});
+  playerAudio.addEventListener('playing',recordListening);
+  playerAudio.addEventListener('ended',()=>{if(playerRepeat==='one'&&playerEligible(playerPath)){playerAudio.currentTime=0;void resumePlayer();return}const next=nextPlayerPath(1);if(next===playerPath&&next){playerAudio.currentTime=0;void resumePlayer()}else if(next)void startTrack(next,false)});
   playerAudio.addEventListener('error',()=>{if(playerPath&&playerURL)toast('This browser cannot play this audio format or codec. The original file is unchanged.')});
   const bar=el('musicPlayer'),measure=()=>document.documentElement.style.setProperty('--music-player-height',bar.getBoundingClientRect().height+'px');
   measure();if(window.ResizeObserver)new ResizeObserver(measure).observe(bar);else window.addEventListener('resize',measure);
   updatePlayerTrack();updatePlayerTime();
+}
+
+
+const MUSIC_COLLECTIONS_FILE='music-collections.json';
+const MUSIC_HISTORY_LIMIT=200,QUEUE_PAGE_SIZE=100;
+function queueNotice(message){el('queueFeedback').textContent=message;if(!el('musicQueueDialog').open)toast(message)}
+function validPlaylistName(name){return typeof name==='string'&&name.trim()===name&&name.length>0&&name.length<=80&&!/[\u0000-\u001f\u007f]/.test(name)}
+function parseMusicCollections(raw){
+  const data=JSON.parse(raw);if(data.version!==1||!Array.isArray(data.playlists)||!Array.isArray(data.history))throw Error('Unsupported music collection file');
+  const playlists=new Map();
+  for(const entry of data.playlists){
+    if(!entry||!validPlaylistName(entry.name)||!Array.isArray(entry.paths)||entry.paths.some(p=>typeof p!=='string'||!validPath(p))||playlists.has(entry.name))throw Error('Invalid playlist entry');
+    playlists.set(entry.name,[...new Set(entry.paths)]);
+  }
+  const history=data.history.slice(0,MUSIC_HISTORY_LIMIT);
+  if(history.some(x=>!x||typeof x.path!=='string'||!validPath(x.path)||typeof x.at!=='number'||!Number.isFinite(x.at)))throw Error('Invalid history entry');
+  return {playlists,history};
+}
+async function loadMusicCollections(){
+  musicPlaylists=new Map();playerHistory=[];musicCollectionsWritable=false;musicHistoryRequest=-1;queuePage=0;
+  try{
+    const dir=await getMetaDir(false),raw=await readText(dir,MUSIC_COLLECTIONS_FILE);
+    if(raw){const data=parseMusicCollections(raw);musicPlaylists=data.playlists;playerHistory=data.history}
+    musicCollectionsWritable=true;
+  }catch(e){toast('Could not read music collections; saving disabled to protect the existing file. '+e.message)}
+  renderPlaylistOptions();
+}
+function saveMusicCollections(){
+  if(!root||!musicCollectionsWritable)return Promise.resolve(false);
+  const r=root,body=JSON.stringify({version:1,playlists:[...musicPlaylists].map(([name,paths])=>({name,paths})),history:playerHistory},null,2)+'\n';
+  return enqueueSave('music collections',async()=>writeText(await getMetaDir(true,r),MUSIC_COLLECTIONS_FILE,body)).then(()=>true,()=>false);
+}
+function recordListening(){
+  if(!root||!playerPath||!playerEligible(playerPath)||musicHistoryRequest===playerRequest)return;
+  musicHistoryRequest=playerRequest;playerHistory.unshift({path:playerPath,at:Date.now()});
+  playerHistory=playerHistory.slice(0,MUSIC_HISTORY_LIMIT);
+  void saveMusicCollections();if(el('musicQueueDialog').open)renderHistory();
+}
+function resetQueueOrder(){playerShuffle=false;playerOriginalOrder=[]}
+function setPlayerQueue(paths){playerQueue=[...new Set(paths)];resetQueueOrder();queuePage=0;queueChanged()}
+function currentQueueSnapshot(path){
+  playerQueue=snapshotTracks(filtered,path,playerEligible);queuePage=0;
+  if(playerShuffle){playerOriginalOrder=playerQueue.slice();playerQueue=shuffleUpcoming(playerQueue,path)}else playerOriginalOrder=[];
+  queueChanged();
+}
+function nextPlayerPath(step){return nextQueueTrack(playerQueue,playerPath,step,playerEligible,playerRepeat)}
+function queueChanged(){
+  el('playerQueueButton').textContent='Queue ('+playerQueue.filter(playerEligible).length+')';
+  el('playerShuffle').setAttribute('aria-pressed',String(playerShuffle));
+  el('playerRepeat').setAttribute('aria-pressed',String(playerRepeat!=='off'));
+  el('playerRepeat').textContent=playerRepeat==='one'?'↻1':'↻';
+  const repeatLabel='Repeat '+(playerRepeat==='all'?'queue':playerRepeat==='one'?'one track':'off');
+  el('playerRepeat').title=repeatLabel;el('playerRepeat').setAttribute('aria-label',repeatLabel);
+  updatePlayerControls();
+  if(el('musicQueueDialog').open)renderQueue();
+}
+function addMusicQueue(paths,next=false){
+  if(!root)return;const before=playerQueue.slice(),out=queueInsert(before,paths,playerPath,next,playerEligible);
+  // Explicit manual ordering takes precedence over shuffle.
+  resetQueueOrder();playerQueue=out;queueChanged();
+  const count=out.filter(p=>!before.includes(p)).length;
+  queueNotice(next?'Moved selected tracks after the current track.':count+' track(s) added to queue.');
+}
+function toggleShuffle(){
+  if(playerShuffle){playerQueue=restoreUpcoming(playerQueue,playerPath,playerOriginalOrder);resetQueueOrder()}
+  else{playerOriginalOrder=playerQueue.slice();playerShuffle=true;playerQueue=shuffleUpcoming(playerQueue,playerPath)}
+  queueChanged();
+}
+function cycleRepeat(){playerRepeat=playerRepeat==='off'?'all':playerRepeat==='all'?'one':'off';queueChanged()}
+function queueButton(text,label,handler,disabled=false){const b=document.createElement('button');b.type='button';b.className='btn';b.textContent=text;b.title=label;b.setAttribute('aria-label',label);b.disabled=disabled;b.onclick=handler;return b}
+function queueTrackLabel(path,sub=''){
+  const item=byPath.get(path),box=document.createElement('div');box.className='queue-track-label';
+  box.textContent=item?musicTitle(item):path.split('/').at(-1);box.title=path;
+  const small=document.createElement('small');small.textContent=[item?.music?.artist,item?.music?.album,sub,!item?'Missing file':trash.has(path)?'In Trash':''].filter(Boolean).join(' · ');box.append(small);return box;
+}
+function renderQueue(){
+  const list=el('queueList');list.replaceChildren();const n=playerQueue.length,pages=Math.max(1,Math.ceil(n/QUEUE_PAGE_SIZE));
+  queuePage=Math.max(0,Math.min(queuePage,pages-1));el('queueCount').textContent=n+' entries · '+playerQueue.filter(playerEligible).length+' playable';
+  el('queuePageLabel').textContent=(queuePage+1)+' / '+pages;
+  el('queuePagePrev').disabled=queuePage===0;el('queuePageNext').disabled=queuePage>=pages-1;
+  el('queueClear').disabled=!n;el('queueAddResults').disabled=!root||!filtered.some(x=>playerEligible(x.path));
+  el('queuePlay').disabled=!playerPath&&!playerQueue.some(playerEligible)&&!filtered.some(x=>playerEligible(x.path));
+  if(!n){const empty=document.createElement('div');empty.className='queue-empty';empty.textContent='Queue is empty. Add tracks from the library or load a playlist.';list.append(empty)}
+  for(let i=queuePage*QUEUE_PAGE_SIZE;i<Math.min(n,(queuePage+1)*QUEUE_PAGE_SIZE);i++){
+    const path=playerQueue[i],row=document.createElement('div');row.className='queue-row'+(path===playerPath?' is-current':'');
+    const number=document.createElement('span');number.className='queue-number';number.textContent=String(i+1);
+    const current=path===playerPath;row.append(number,queueTrackLabel(path,current?'Current track':''));
+    row.append(queueButton('▶','Play '+path,()=>{if(current)toggleMusic();else void startTrack(path,false)},!playerEligible(path)),
+      queueButton('↑','Move up',()=>{playerQueue=moveQueueEntry(playerQueue,i,-1,playerPath);resetQueueOrder();queueChanged()},current||i===0||playerQueue[i-1]===playerPath),
+      queueButton('↓','Move down',()=>{playerQueue=moveQueueEntry(playerQueue,i,1,playerPath);resetQueueOrder();queueChanged()},current||i===n-1||playerQueue[i+1]===playerPath),
+      queueButton('✕','Remove from queue',()=>{playerQueue=playerQueue.filter(p=>p!==path);resetQueueOrder();queueChanged()},current));
+    list.append(row);
+  }
+  updatePlaylistButtons();
+}
+function renderPlaylistOptions(){
+  const select=el('playlistSelect'),old=select.value;select.replaceChildren(new Option('Choose playlist…',''));
+  for(const [name,paths] of [...musicPlaylists].sort(([a],[b])=>a.localeCompare(b)))select.add(new Option(name+' ('+paths.length+')',name));
+  if(musicPlaylists.has(old))select.value=old;updatePlaylistButtons();
+}
+function updatePlaylistButtons(){
+  const selected=musicPlaylists.has(el('playlistSelect').value);
+  for(const id of ['playlistLoad','playlistAppend'])el(id).disabled=!root||!selected;
+  el('playlistDelete').disabled=!root||!selected||!musicCollectionsWritable;
+  el('playlistSave').disabled=!root||!musicCollectionsWritable||!playerQueue.length||!validPlaylistName(el('playlistName').value.trim());
+}
+function renderHistory(){
+  const host=el('historyList');host.replaceChildren();el('historyClear').disabled=!playerHistory.length||!musicCollectionsWritable;
+  if(!playerHistory.length){const empty=document.createElement('div');empty.className='queue-empty';empty.textContent='No listening history.';host.append(empty)}
+  for(const entry of playerHistory){
+    const row=document.createElement('div');row.className='queue-row';
+    row.append(queueTrackLabel(entry.path,new Date(entry.at).toLocaleString()),queueButton('▶','Play '+entry.path,()=>{if(!playerEligible(entry.path))return;addMusicQueue([entry.path]);void startTrack(entry.path,false)},!playerEligible(entry.path)));host.append(row);
+  }
+}
+function openMusicQueue(){
+  el('queueFeedback').textContent='';const at=playerQueue.indexOf(playerPath);if(at>=0)queuePage=Math.floor(at/QUEUE_PAGE_SIZE);
+  renderPlaylistOptions();renderQueue();renderHistory();el('musicQueueDialog').showModal();
+}
+function initMusicCollections(){
+  el('playerQueueButton').onclick=openMusicQueue;
+  el('queueClose').onclick=()=>el('musicQueueDialog').close();
+  el('queuePlay').onclick=toggleMusic;
+  el('queueAddResults').onclick=()=>addMusicQueue(filtered.map(x=>x.path));
+  el('queueClear').onclick=()=>{setPlayerQueue(playerPath?[playerPath]:[]);queueNotice('Queue cleared; current playback is unchanged.')};
+  el('queuePagePrev').onclick=()=>{queuePage--;renderQueue()};
+  el('queuePageNext').onclick=()=>{queuePage++;renderQueue()};
+  el('playerShuffle').onclick=toggleShuffle;el('playerRepeat').onclick=cycleRepeat;
+  const selected=()=>filtered.filter(x=>selectedPaths.has(x.path)).map(x=>x.path);
+  el('bulkQueue').onclick=()=>addMusicQueue(selected());
+  el('bulkPlayNext').onclick=()=>addMusicQueue(selected(),true);
+  el('viewerQueueTrack').onclick=()=>{if(currentPath)addMusicQueue([currentPath])};
+  el('viewerPlayNext').onclick=()=>{if(currentPath)addMusicQueue([currentPath],true)};
+  el('playlistSelect').onchange=()=>{el('playlistName').value=el('playlistSelect').value;updatePlaylistButtons()};
+  el('playlistName').oninput=updatePlaylistButtons;
+  el('playlistLoad').onclick=()=>{
+    const paths=musicPlaylists.get(el('playlistSelect').value);if(!paths)return;
+    // Keep an already playing track as anchor; loading a list does not start playback.
+    const ordered=playerPath&&!paths.includes(playerPath)?[playerPath,...paths]:paths.slice();
+    setPlayerQueue(ordered);queueNotice('Playlist loaded into queue.');
+  };
+  el('playlistAppend').onclick=()=>{
+    const paths=musicPlaylists.get(el('playlistSelect').value);if(!paths)return;
+    setPlayerQueue([...playerQueue,...paths]);queueNotice('Playlist appended.');
+  };
+  el('playlistSave').onclick=async()=>{
+    const name=el('playlistName').value.trim(),r=root;if(!r||!musicCollectionsWritable||!validPlaylistName(name)||!playerQueue.length)return;
+    if(musicPlaylists.has(name)&&!await galleryCollectionDialog({title:'Replace playlist?',message:'Replace the saved order of “'+name+'” with the current queue?',action:'Replace'}))return;
+    if(root!==r)return;const before=musicPlaylists.get(name);musicPlaylists.set(name,playerQueue.slice());
+    if(!await saveMusicCollections()){if(root===r){if(before)musicPlaylists.set(name,before);else musicPlaylists.delete(name)}return}
+    if(root===r){renderPlaylistOptions();el('playlistSelect').value=name;updatePlaylistButtons();queueNotice('Saved playlist “'+name+'”.')}
+  };
+  el('playlistDelete').onclick=async()=>{
+    const name=el('playlistSelect').value,r=root;if(!r||!musicCollectionsWritable||!musicPlaylists.has(name))return;
+    if(!await galleryCollectionDialog({title:'Delete playlist?',message:'Remove “'+name+'” only. Audio files and the current queue remain unchanged.',action:'Delete',danger:true})||root!==r)return;
+    const before=musicPlaylists.get(name);musicPlaylists.delete(name);
+    if(!await saveMusicCollections()){if(root===r)musicPlaylists.set(name,before);return}
+    if(root===r){el('playlistName').value='';renderPlaylistOptions();queueNotice('Playlist deleted.')}
+  };
+  el('historyClear').onclick=async()=>{
+    const r=root;if(!r||!musicCollectionsWritable||!playerHistory.length)return;
+    if(!await galleryCollectionDialog({title:'Clear listening history?',message:'Only the saved listening history will be removed.',action:'Clear',danger:true})||root!==r)return;
+    const before=playerHistory;playerHistory=[];
+    if(!await saveMusicCollections()){if(root===r)playerHistory=before;return}
+    if(root===r){renderHistory();queueNotice('Listening history cleared.')}
+  };
+  queueChanged();
 }
 
 function buildItem(path,handle=null){return {path,name:path.split('/').at(-1),kind:typeOf(path),handle}}
@@ -2160,11 +2401,11 @@ async function forgetLibraries(){
 async function activateLibrary(picked){
   if(thumbResetting||deletingMedia)throw Error('Wait for the current gallery maintenance operation to finish.');
   await flushThumbManifest();await saveQueue.catch(()=>{});
-  scanNo++;clearTimeout(fileInfoTimer);if(el('viewer').open)closeViewer();stopMusic();clearThumbs();
+  scanNo++;clearTimeout(fileInfoTimer);if(el('viewer').open)closeViewer();stopMusic();playerRepeat='off';clearThumbs();
   clearSelection();lastUndo=null;root=picked;configuredRootPath='';dirCache=new Map([['',picked]]);images=[];byPath.clear();
   el('libraryName').textContent=picked.name;el('libraryName').title=picked.name;activeView={type:'all'};visibleCount=80;
   el('folder').value='';el('kind').value='';el('query').value='';setStatus('Loading metadata…');
-  await loadMetadata();await loadFullPathConfig();await autoConfigureFullPath();await loadThumbManifest();await loadFileInfo();
+  await loadMetadata();await loadMusicCollections();await loadFullPathConfig();await autoConfigureFullPath();await loadThumbManifest();await loadFileInfo();
   if(!await loadIndex())await scan();
   else if(!fileInfo.size)updateMaintenance();
   updateMaintenance();
@@ -2389,7 +2630,7 @@ function updateSelectionUI(){
   el('bulkAlbum').disabled=locked;
   el('bulkAddAlbum').disabled=locked||!el('bulkAlbum').value;
   el('bulkTag').disabled=locked;el('bulkAddTag').disabled=locked||!cleanTag(el('bulkTag').value);
-  el('bulkTrash').disabled=locked;
+  el('bulkTrash').disabled=locked;el('bulkQueue').disabled=el('bulkPlayNext').disabled=locked;
   el('bulkTrash').textContent=activeView.type==='trash'?'↶ Restore selected':'🗑 Move to Trash';
   el('bulkTrash').title=activeView.type==='trash'?'Restore all selected items from in-gallery Trash (original files already exist).':'Hide all selected items in the in-gallery Trash. Original files are NOT deleted.';
   document.querySelectorAll('#gallery .photo').forEach(card=>card.classList.toggle('is-selected',selectedPaths.has(card.dataset.path)));
@@ -2804,7 +3045,7 @@ async function moveCurrentToTrash(){
   const path=currentPath;
   if(trash.has(path))return;
   recordUndo('move to Trash');trash.add(path);
-  try{await saveTrash();if(playerPath===path)stopMusic();closeViewer();renderTagList();filterAndRender();toast('Moved to in-gallery Trash. Original file remains on disk.');}
+  try{await saveTrash();if(playerPath===path){stopMusic(false);playerPath=null;queueChanged();updatePlayerTrack();}closeViewer();renderTagList();filterAndRender();toast('Moved to in-gallery Trash. Original file remains on disk.');}
   catch(e){trash.delete(path);renderTagList();filterAndRender();toast('Could not save Trash: '+e.message)}
 }
 async function restoreCurrentFromTrash(){
@@ -2858,7 +3099,7 @@ async function permanentlyDeleteCurrent(){
     const parts=path.split('/'),name=parts.pop();let dir=selectedRoot;
     for(const segment of parts)dir=await dir.getDirectoryHandle(segment);
     await dir.getFileHandle(name); // Check target exists and is a file.
-    if(playerPath===path)stopMusic();
+    if(playerPath===path){stopMusic(false);playerPath=null;queueChanged();updatePlayerTrack();}
     await dir.removeEntry(name); // Browser API: permanent deletion, not OS Recycle Bin.
     removed=true;lastUndo=null; // Irreversible file deletion.
     closeViewer();clearSelection();clearThumbs();
@@ -2924,7 +3165,7 @@ async function deleteTrashPaths(onlySelected){
         let dir=selectedRoot;
         for(const part of parts)dir=await dir.getDirectoryHandle(part);
         await dir.getFileHandle(filename); // refuse to delete a directory
-        if(playerPath===path)stopMusic();
+        if(playerPath===path){stopMusic(false);playerPath=null;queueChanged();updatePlayerTrack();}
         await dir.removeEntry(filename);   // permanent; not the OS Recycle Bin
         removed.push(path);
       }catch(error){
@@ -3115,6 +3356,7 @@ function updateSelectionUI(){
   updateResultsLine();
   updateSelectionActionHints();
   updateSelectedDeleteButton();
+  el('bulkQueue').disabled=el('bulkPlayNext').disabled=!root||!selectedPaths.size||deletingMedia||scanInProgress||thumbResetting;
 }
 function clearSelection(){selectedPaths.clear();selectingMode=false;selectionAnchor=null;updateSelectionUI();}
 
@@ -3595,7 +3837,7 @@ mediaDialog.addEventListener('pointerdown',e=>{ dismissPointerStartedOnBackgroun
 mediaDialog.addEventListener('click',e=>{ const backgroundClick=e.target===mediaStage||hitViewerBackdrop(e); if(dismissPointerStartedOnBackground&&backgroundClick) closeViewer(); dismissPointerStartedOnBackground=false; });
 mediaDialog.addEventListener('pointercancel',()=>{dismissPointerStartedOnBackground=false}); mediaDialog.addEventListener('close',()=>{dismissPointerStartedOnBackground=false});
 el('prev').onclick=()=>moveViewer(-1); el('next').onclick=()=>moveViewer(1);
-initMusicPlayer();
+initMusicPlayer();initMusicCollections();
 document.addEventListener('keydown',e=>{
   const editing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||document.activeElement?.isContentEditable;
   if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='z'&&!editing){
