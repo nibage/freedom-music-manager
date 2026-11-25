@@ -1307,7 +1307,7 @@ async function confirmLibrarySelection(handle){
   if(!expected||expected.toLocaleLowerCase()===handle.name.toLocaleLowerCase()||['demo-gallery','demo-music'].includes(handle.name))return true;
   return await galleryCollectionDialog({
     title:'Open a different library?',
-    message:`This HTML file is inside “${expected}/__music”, but you selected “${handle.name}”.\n\n`+
+    message:`This HTML file belongs to “${expected}”, but you selected “${handle.name}”.\n\n`+
       'Opening a different library would read and modify its metadata.\n'+
       'Cancel to keep your two music libraries independent.',
     action:'Open anyway'
@@ -1640,7 +1640,7 @@ async function cleanupOrphans(automatic=false){
 // Manual cache rebuild. Only derived WebP previews are removed; personal
 // metadata, albums, media files and the file index are never touched.
 async function rebuildThumbnailCache(){
-  if(!root||scanInProgress||thumbResetting)return;
+  if(!root||scanInProgress||thumbResetting||librarySwitching)return;
   if(!await galleryCollectionDialog({title:'Remove cached thumbnails?',message:'Delete generated WebP previews in __music/data/thumbs/? New previews are created when you browse. Original audio files, favorites, tags, music collections and the file index remain unchanged.',action:'Remove thumbs',danger:true}))return;
   thumbResetting=true;
   for(const id of ['rebuildThumbs','rescan','openFolder','openFolder2','recentFolders'])el(id).disabled=true;
@@ -2144,7 +2144,7 @@ function loadTrackMetadata(item,file){
   if(item.musicPromise)return item.musicPromise;
   const activeRoot=root,session=musicCacheSession;
   item.musicPromise=(async()=>{
-    try{if(root!==activeRoot||byPath.get(item.path)!==item)return {};
+    try{if(root!==activeRoot||session!==musicCacheSession||byPath.get(item.path)!==item)return {};
       const source=file||await itemFile(item);
       if(root!==activeRoot||session!==musicCacheSession||byPath.get(item.path)!==item)return {};
       const cached=musicMetadataCache.get(item.path),hit=validMusicCacheStamp(cached,source);
@@ -2155,7 +2155,7 @@ function loadTrackMetadata(item,file){
       item.music={...m,...(item.music?.duration?{duration:item.music.duration}:{})};item.musicReady=true;
       cacheMusicMetadata(item.path,source,item.music);refreshMusicCaption(item);scheduleMusicFilterRefresh();
       return item.music;
-    }catch(_){if(root===activeRoot&&byPath.get(item.path)===item){item.musicReady=true;scheduleMusicFilterRefresh()}return item.music||{}}
+    }catch(_){if(root===activeRoot&&session===musicCacheSession&&byPath.get(item.path)===item){item.musicReady=true;scheduleMusicFilterRefresh()}return item.music||{}}
   })();return item.musicPromise;
 }
 function startMusicIndex(items){
@@ -2581,7 +2581,7 @@ async function collect(dir,prefix,scanId,out){
 }
 async function scan(manual=false){
   if(thumbResetting||deletingMedia)return;
-  if(!root||scanInProgress)return;
+  if(!root||scanInProgress||(manual&&librarySwitching))return;
   if(manual&&!await galleryCollectionDialog({title:'Rebuild index?',message:'Rescan every folder to discover added, renamed or moved files. After a successful scan, stale metadata references and orphaned previews may be removed permanently. Make sure all drives and folders are available before continuing.',action:'Rebuild index'}))return;
   clearSelection();scanInProgress=true;clearTimeout(fileInfoTimer);el('rescan').disabled=true;el('rebuildThumbs').disabled=true;
   const scanId=++scanNo,scanRoot=root,collected=[];
@@ -2603,12 +2603,11 @@ async function scan(manual=false){
     if(approved.length){moved=await migrateMoves(approved,next)}
     if(scanId!==scanNo)return;
     clearThumbs();dirCache=new Map([['',scanRoot]]);
-    fileInfo=next;installItems(collected,'fresh scan');pruneMusicCache();
+    fileInfo=next;installItems(collected,'fresh scan');
     const txt=INDEX_HEADER+'\n# Generated: '+new Date().toISOString()+'\n'+serializePaths(new Set(collected.map(x=>x.path)));
     // The old file inventory is not discarded until the matching/review step finishes.
     await enqueueSave('index',async()=>writeText(await getMetaDir(true,scanRoot),INDEX_NAME,txt));
-    fileInfo=next;
-    await enqueueSave('informace o souborech',async()=>writeText(await getMetaDir(true,scanRoot),FILE_INFO_NAME,fileInfoText(next)));
+    await enqueueSave('file information',async()=>writeText(await getMetaDir(true,scanRoot),FILE_INFO_NAME,fileInfoText(next)));
     updateMaintenance();
     // Avoid destructive cleanup if a drive becomes inaccessible or an unexpectedly large
     // portion of the library vanishes. The user can review and rerun after fixing it.
@@ -2620,7 +2619,7 @@ async function scan(manual=false){
     else if(moved)toast(`Transferred metadata for ${moved} files. No backup created.`);
     else if(suspicious)console.warn('Automatic cleanup was skipped after an unexpectedly large library change.');
     setStatus(`${images.length.toLocaleString('cs-CZ')} files · music index saved ✓`);
-  }catch(e){setStatus('Indexing error');toast('Could not refresh index: '+e.message);console.error(e)}
+  }catch(e){setStatus('Indexing error');toast('Could not refresh index: '+e.message);console.error(e);if(scanId===scanNo&&root===scanRoot&&!musicIndexing)startMusicIndex(images)}
   finally{scanInProgress=false;if(scanId===scanNo){el('rescan').disabled=false;el('rebuildThumbs').disabled=false}}
 }
 
