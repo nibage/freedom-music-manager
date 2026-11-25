@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-const html=await readFile(new URL('../__gallery/index.html',import.meta.url),'utf8');
+const html=await readFile(new URL('../__music/index.html',import.meta.url),'utf8');
 const code=html.match(/\/\* BEGIN MUSIC FILTER LOGIC \*\/([\s\S]*?)\/\* END MUSIC FILTER LOGIC \*\//)[1];
 const f=new Function(code+'\nreturn {musicFold,musicYear,musicFacetKey,musicDurationBucket,matchesMusicFacets,buildMusicFacets,matchesMusicQuery,sortMusicResults};')();
 const items=[
