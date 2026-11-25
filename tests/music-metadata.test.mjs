@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const html = await readFile(join(repo, '__gallery/index.html'), 'utf8');
+const html = await readFile(join(repo, '__music/index.html'), 'utf8');
 const code = html.match(/\/\* BEGIN AUDIO METADATA \*\/([\s\S]*?)\/\* END AUDIO METADATA \*\//);
 assert.ok(code, 'Metadata parser is embedded in the HTML');
 const parse = new Function(code[1] + '\nreturn readAudioMetadata;')();
