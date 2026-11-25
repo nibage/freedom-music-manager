@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""Generate original audio fixtures. Requires Python 3; ffmpeg enables six formats."""
+import argparse
+import json
+import math
+import shutil
+import struct
+import subprocess
+import tempfile
+import wave
+import zlib
+from pathlib import Path
+
+TRACKS = [
+    ('Aurora Signals', 'Northern Lights', 'First Light', 'Ambient', 2024, 1, 5, 'wav', 220),
+    ('Aurora Signals', 'Northern Lights', 'Polar Drift', 'Ambient', 2024, 2, 7, 'flac', 261.63),
+    ('Aurora Signals', 'Northern Lights', 'Blue Horizon', 'Ambient', 2024, 3, 8, 'mp3', 293.66),
+    ('Copper Echo', 'City After Rain', 'Neon Steps', 'Electronic', 2025, 1, 6, 'ogg', 329.63),
+    ('Copper Echo', 'City After Rain', 'Night Tram', 'Electronic', 2025, 2, 9, 'm4a', 392),
+    ('Copper Echo', 'City After Rain', 'Quiet Junction', 'Electronic', 2025, 3, 10, 'opus', 349.23),
+    ('Paper Harbor', 'Small Hours', 'Window Seat', 'Instrumental', 2023, 1, 5, 'wav', 440),
+    ('Paper Harbor', 'Small Hours', 'Homeward', 'Instrumental', 2023, 2, 8, 'mp3', 523.25),
+    ('Unknown Artist', 'Loose Tracks', 'Untitled', '', None, None, 4, 'wav', 196),
+]
+RATE = 22050
+
+
+def riff_chunk(kind, payload):
+    return kind + struct.pack('<I', len(payload)) + payload + b'\0' * (len(payload) % 2)
+
+
+def write_wave(path, duration, hz, tags):
+    frames = bytearray()
+    for i in range(RATE * duration):
+        t = i / RATE
+        fade = min(1, t * 8, (duration - t) * 8)
+        modulation = 0.5 + 0.5 * math.sin(2 * math.pi * 0.7 * t) ** 2
+        value = 0.14 * fade * modulation * (math.sin(2 * math.pi * hz * t) + 0.35 * math.sin(2 * math.pi * hz * 1.5 * t))
+        frames.extend(struct.pack('<h', int(32767 * value)))
+    with wave.open(str(path), 'wb') as out:
+        out.setnchannels(1)
+        out.setsampwidth(2)
+        out.setframerate(RATE)
+        out.writeframes(frames)
+    info = {'title': b'INAM', 'artist': b'IART', 'album': b'IPRD', 'genre': b'IGNR', 'date': b'ICRD', 'track': b'ITRK'}
+    payload = b'INFO' + b''.join(riff_chunk(info[k], str(v).encode('utf-8') + b'\0') for k, v in tags.items() if v)
+    if len(payload) > 4:
+        data = path.read_bytes() + riff_chunk(b'LIST', payload)
+        path.write_bytes(data[:4] + struct.pack('<I', len(data)-8) + data[8:])
+
+
+def cover(path, seed):
+    n = 192
+    def chunk(k, v):
+        return struct.pack('>I', len(v)) + k + v + struct.pack('>I', zlib.crc32(k+v)&0xffffffff)
+    raw = bytearray()
+    for y in range(n):
+        raw.append(0)
+        for x in range(n):
+            r = math.hypot(x-n/2, y-n/2)
+            ring = int(r/9) % 2 == 0
+            raw.extend(((seed*51+x//3+(60 if ring else 0))%256, (seed*33+y//2)%256, (140+seed*17+x//5)%256))
+    path.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', n,n,8,2,0,0,0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b''))
+
+
+def generate(root):
+    # Never overwrite an existing library.
+    root.mkdir(parents=True, exist_ok=False)
+    ffmpeg = shutil.which('ffmpeg')
+    manifest = []
+    codecs = {'mp3': 'libmp3lame', 'flac': 'flac', 'ogg': 'libvorbis', 'm4a': 'aac', 'opus': 'libopus'}
+    with tempfile.TemporaryDirectory() as temp:
+        for i, (artist, album, title, genre, year, number, duration, ext, hz) in enumerate(TRACKS):
+            folder = root / artist / album
+            folder.mkdir(parents=True, exist_ok=True)
+            if artist != 'Unknown Artist' and not (folder/'cover.png').exists():
+                cover(folder/'cover.png', i+1)
+            tags = {} if number is None else {'title': title, 'artist': artist, 'album': album, 'genre': genre, 'date': str(year), 'track': str(number)}
+            stem = f'{number:02d} - {title}' if number is not None else title
+            dest = folder / f'{stem}.{ext}'
+            source = Path(temp)/'source.wav'
+            write_wave(source, duration, hz, tags)
+            if ext == 'wav' or not ffmpeg:
+                dest = dest.with_suffix('.wav')
+                shutil.copyfile(source, dest)
+            else:
+                cmd = [ffmpeg, '-nostdin', '-v', 'error', '-y', '-i', str(source), '-map_metadata', '-1', '-c:a', codecs[ext]]
+                for key, value in tags.items():
+                    cmd += ['-metadata', f'{key}={value}']
+                try:
+                    subprocess.run(cmd+[str(dest)], check=True, capture_output=True)
+                except subprocess.CalledProcessError:
+                    dest.unlink(missing_ok=True)
+                    dest = dest.with_suffix('.wav')
+                    shutil.copyfile(source, dest)
+            manifest.append({'path': dest.relative_to(root).as_posix(), 'tags': tags, 'duration_seconds': duration, 'format': dest.suffix[1:]})
+    (root/'expected-metadata.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+    (root/'README.txt').write_text('Synthetic demo tracks, generated locally. No commercial recordings.\nSelect this directory in Freedom Music Manager. expected-metadata.json describes the expected tags. Untitled has no embedded tags or cover.\n', encoding='utf-8')
+    print(f'Created {len(manifest)} tracks in {root}: '+', '.join(sorted({t['format'] for t in manifest})))
+
+
+if __name__ == '__main__':
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('directory', nargs='?', type=Path, default=Path('demo-music'))
+    generate(p.parse_args().directory)
