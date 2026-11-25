@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Local Media Gallery v7.9.1</title>
+<title>Freedom Music Manager — development</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%0A%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2215%22%20fill%3D%22%231b1e24%22%2F%3E%0A%3Crect%20x%3D%2210%22%20y%3D%2218%22%20width%3D%2237%22%20height%3D%2232%22%20rx%3D%225%22%20fill%3D%22%2330353d%22%20stroke%3D%22%23f6a622%22%20stroke-width%3D%223%22%20opacity%3D%220.83%22%2F%3E%0A%3Crect%20x%3D%2217%22%20y%3D%2212%22%20width%3D%2238%22%20height%3D%2237%22%20rx%3D%226%22%20fill%3D%22%23262a31%22%20stroke%3D%22%23f6a622%22%20stroke-width%3D%223%22%2F%3E%0A%3Ccircle%20cx%3D%2243%22%20cy%3D%2223%22%20r%3D%225%22%20fill%3D%22%23f6a622%22%2F%3E%0A%3Cpath%20d%3D%22M21%2043%2030%2030%2037%2037%2043%2032%2051%2043Z%22%20fill%3D%22%23f3f4f5%22%2F%3E%0A%3C%2Fsvg%3E">
 <style>
   :root { color-scheme:dark; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; --bg:#10141b; --panel:#19202b; --line:#2b3442; --muted:#a9b4c5; --accent:#9bbef8; --text:#f1f4fa; }
@@ -49,11 +49,11 @@
   /* A compact results row, with a reserved action slot to avoid text jumps in Trash. */
   .results-toolbar {display:grid;grid-template-columns:minmax(0,1fr) 104px 108px;align-items:center;gap:8px;margin:0 0 7px;min-width:0;min-height:28px}
   .results-toolbar #selectMode {font-size:11px;padding:4px 7px;line-height:18px;width:104px;white-space:nowrap}
-  .instagram-mode .results-toolbar {grid-template-columns:minmax(0,1fr) 108px}
+  .detailed-mode .results-toolbar {grid-template-columns:minmax(0,1fr) 108px}
   #results {font-size:13px;color:var(--muted);min-width:0;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #deleteAllTrash {font-size:11px;padding:4px 7px;line-height:18px;width:108px;min-width:0;max-width:108px;justify-self:end;overflow:hidden;text-overflow:ellipsis}
   .results-toolbar #deleteAllTrash[hidden] {visibility:hidden!important;display:block!important;pointer-events:none}
-  @media(max-width:620px){.results-toolbar {grid-template-columns:minmax(0,1fr) 84px 96px;gap:5px} .results-toolbar #selectMode{width:84px;font-size:10px;padding:4px} #deleteAllTrash{width:96px;max-width:96px;font-size:10px;padding:4px 4px} .instagram-mode .results-toolbar{grid-template-columns:minmax(0,1fr) 96px}}
+  @media(max-width:620px){.results-toolbar {grid-template-columns:minmax(0,1fr) 84px 96px;gap:5px} .results-toolbar #selectMode{width:84px;font-size:10px;padding:4px} #deleteAllTrash{width:96px;max-width:96px;font-size:10px;padding:4px 4px} .detailed-mode .results-toolbar{grid-template-columns:minmax(0,1fr) 96px}}
   .grid {display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:15px;position:relative}
   .selection-toolbar {display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:5px 0 10px;padding:8px 10px;border:1px solid #46668d;border-radius:9px;background:#1b2a3e;font-size:12px}
   .selection-toolbar .selection-count {font-weight:700;margin-right:auto;white-space:nowrap}
@@ -65,7 +65,7 @@
   .photo.in-trash.is-selected::after {top:37px}
   .grid.marquee-dragging,.grid.marquee-dragging * {user-select:none!important;-webkit-user-select:none!important}
   .selection-marquee {position:absolute;z-index:5;border:1px solid #b5d4ff;background:#8db9ff35;pointer-events:none;border-radius:3px}
-  .instagram-mode #selectMode,.instagram-mode #selectionBar {display:none!important}
+  .detailed-mode #selectMode,.detailed-mode #selectionBar {display:none!important}
   .photo {border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#1a222e;position:relative;min-width:0}
   .thumb {display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#232d3a;cursor:pointer;color:var(--muted)}
   .photo .meta {display:flex;gap:8px;align-items:center;padding:9px 10px;font-size:12px;color:var(--muted);min-width:0}
@@ -103,21 +103,21 @@
 
   /* Optional edge-to-edge grid. Classic view remains unchanged. */
   .layout-toggle[aria-pressed="true"] {background:#3767ad;border-color:#5283c8;color:white}
-  .instagram-mode .grid {grid-template-columns:repeat(6,minmax(0,1fr));gap:0}
-  .instagram-mode .photo {border:0;border-radius:0;background:#151b25}
-  .instagram-mode .thumb,.instagram-mode .video-tile {aspect-ratio:1/1;object-fit:cover}
-  .instagram-mode .video-tile .thumb {width:100%;height:100%;aspect-ratio:auto}
-  .instagram-mode .photo .meta,.instagram-mode .kind-tag {display:none}
-  .instagram-mode .heart {opacity:0;transition:opacity .12s;z-index:2}
-  .instagram-mode .photo:hover .heart,
-  .instagram-mode .photo:focus-within .heart,
-  .instagram-mode .heart.on {opacity:1}
-  .instagram-mode .play {width:40px;height:40px;font-size:19px}
-  @media(max-width:1499px) {.instagram-mode .grid {grid-template-columns:repeat(5,minmax(0,1fr))}}
-  @media(max-width:1099px) {.instagram-mode .grid {grid-template-columns:repeat(4,minmax(0,1fr))}}
-  @media(max-width:839px) {.instagram-mode .grid {grid-template-columns:repeat(3,minmax(0,1fr))}}
-  @media(max-width:559px) {.instagram-mode .grid {grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media(hover:none) {.instagram-mode .heart {opacity:.9}}
+  .detailed-mode .grid {grid-template-columns:repeat(6,minmax(0,1fr));gap:0}
+  .detailed-mode .photo {border:0;border-radius:0;background:#151b25}
+  .detailed-mode .thumb,.detailed-mode .video-tile {aspect-ratio:1/1;object-fit:cover}
+  .detailed-mode .video-tile .thumb {width:100%;height:100%;aspect-ratio:auto}
+  .detailed-mode .photo .meta,.detailed-mode .kind-tag {display:none}
+  .detailed-mode .heart {opacity:0;transition:opacity .12s;z-index:2}
+  .detailed-mode .photo:hover .heart,
+  .detailed-mode .photo:focus-within .heart,
+  .detailed-mode .heart.on {opacity:1}
+  .detailed-mode .play {width:40px;height:40px;font-size:19px}
+  @media(max-width:1499px) {.detailed-mode .grid {grid-template-columns:repeat(5,minmax(0,1fr))}}
+  @media(max-width:1099px) {.detailed-mode .grid {grid-template-columns:repeat(4,minmax(0,1fr))}}
+  @media(max-width:839px) {.detailed-mode .grid {grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media(max-width:559px) {.detailed-mode .grid {grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(hover:none) {.detailed-mode .heart {opacity:.9}}
 
   /* Wiki-inspired, accessible System / Light / Dark palette. */
   html[data-theme="light"] {color-scheme:light;--bg:#f2f5f8;--panel:#fff;--aside:#f7f9fc;--line:#dce3ea;--muted:#586a7c;--accent:#275b9d;--text:#243140;--control:#fff;--control-border:#cbd5e1;--control-hover:#eaf1f8;--card:#fff;--thumb-bg:#e8eef4;--active:#e5f0fa;--selection-bg:#e6f3ff;--selection-color:#2862a8;--dialog:#fff}
@@ -157,14 +157,14 @@
   .tag-chip span:first-child {overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .tag-chip .tag-count {background:transparent;padding:0;margin:0}
   .tag-chip:hover {background:var(--control-hover)}.tag-chip.active {border-color:#31a56b;box-shadow:0 0 0 1px #31a56b inset;background:color-mix(in srgb,#31a56b 14%,var(--control))}
-  .instagram-mode .photo.is-selected {outline:3px solid var(--selection-color);outline-offset:-3px}
-  .instagram-mode #selectMode,.instagram-mode #selectionBar {display:flex!important}
-  .instagram-mode #selectionBar[hidden] {display:none!important}
-  .instagram-mode .results-toolbar {grid-template-columns:minmax(0,1fr) 104px 108px}
+  .detailed-mode .photo.is-selected {outline:3px solid var(--selection-color);outline-offset:-3px}
+  .detailed-mode #selectMode,.detailed-mode #selectionBar {display:flex!important}
+  .detailed-mode #selectionBar[hidden] {display:none!important}
+  .detailed-mode .results-toolbar {grid-template-columns:minmax(0,1fr) 104px 108px}
   .grid.longpress-selecting,.grid.longpress-selecting * {user-select:none;-webkit-user-select:none}
   #bulkTag {font-size:12px;padding:7px 8px;max-width:135px;min-width:95px}
   .selection-toolbar .selection-count {margin-right:auto}
-  @media(max-width:620px){.instagram-mode .results-toolbar{grid-template-columns:minmax(0,1fr) 84px 96px}.top {padding:9px}.collection-header{gap:3px}.collection-action{font-size:10px;padding:5px 2px}}
+  @media(max-width:620px){.detailed-mode .results-toolbar{grid-template-columns:minmax(0,1fr) 84px 96px}.top {padding:9px}.collection-header{gap:3px}.collection-action{font-size:10px;padding:5px 2px}}
 
   html[data-theme="light"] .details .close {color:#243140}
   html[data-theme="light"] #toast {background:#fff;color:#243140;border:1px solid #cbd5e1}
@@ -225,12 +225,12 @@ body.has-selection .collection-scroll .nav-btn .tag-count { margin-right:26px; }
 body.has-selection .nav-btn:hover .row-plus,
 body.has-selection .album-row:hover .row-plus,
 body.has-selection .tag-chip:hover .chip-action-label,
-.instagram-mode.has-selection .nav-btn:hover .row-plus,
-.instagram-mode.has-selection .album-row:hover .row-plus,
-.instagram-mode.has-selection .tag-chip:hover .chip-action-label { display:inline-flex; }
+.detailed-mode.has-selection .nav-btn:hover .row-plus,
+.detailed-mode.has-selection .album-row:hover .row-plus,
+.detailed-mode.has-selection .tag-chip:hover .chip-action-label { display:inline-flex; }
 .aside-bottom-toolbar { display:flex !important; flex-wrap:nowrap; gap:6px; min-width:0; position:sticky; bottom:0; padding:10px 0 3px; background:var(--aside); z-index:3; }
 .aside-bottom-toolbar .btn { flex:1 1 50%; min-width:0; max-width:50%; padding:7px 3px; font-size:11px; line-height:1.2; white-space:nowrap; }
-.instagram-mode .aside-bottom-toolbar { display:flex !important; }
+.detailed-mode .aside-bottom-toolbar { display:flex !important; }
 /* In the viewer, controls stack in navigation order and the file/location actions stay at the foot. */
 .viewer .details { display:flex; flex-direction:column; min-height:0; }
 .viewer-primary-actions,.viewer-actions { display:flex !important; flex-direction:column; gap:7px; }
@@ -265,7 +265,7 @@ body.has-selection .nav-btn:hover .row-plus{position:absolute;right:7px;backgrou
 .collection-scroll .nav-btn .row-plus{position:absolute;right:7px;background:var(--aside);z-index:2}
 body.has-selection .tag-chip:hover .chip-action-label{border:1px solid var(--ok);box-shadow:0 0 0 1px var(--ok) inset;min-width:20px;min-height:20px}
 .aside-bottom-toolbar .btn{min-width:0;min-height:34px;flex:1 1 0;max-width:none;white-space:nowrap;font-size:11px;padding:7px 2px}
-.instagram-mode .aside-bottom-toolbar,.instagram-mode .aside-bottom-toolbar .btn{visibility:visible!important;opacity:1}
+.detailed-mode .aside-bottom-toolbar,.detailed-mode .aside-bottom-toolbar .btn{visibility:visible!important;opacity:1}
 #gallery{min-height:60px}
 .results-toolbar{display:flex;align-items:center;gap:8px;min-height:38px}
 #results{flex:1 1 auto;min-width:0}
@@ -928,12 +928,28 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
   .top-right #status{min-width:0;flex:0 0 auto;}
 }
 
+
+/* Music views: preserve selection and collection controls in both layouts. */
+.grid .video-tile {aspect-ratio:1/1}
+.grid .video-tile .thumb {object-fit:cover}
+.grid .meta {display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.grid .filename {font-weight:600;max-width:100%;flex:none}
+.track-details {display:block;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.detailed-mode .grid {grid-template-columns:minmax(0,1fr);gap:7px}
+.detailed-mode .grid .photo {display:grid;grid-template-columns:72px minmax(0,1fr) 44px;align-items:center;gap:10px;border:1px solid var(--line);border-radius:9px;padding:6px}
+.detailed-mode .grid .video-tile {grid-column:1;grid-row:1;width:72px;height:72px;aspect-ratio:1/1}
+.detailed-mode .grid .photo .meta {grid-column:2;grid-row:1;display:flex;min-width:0;padding:5px;cursor:pointer}
+.detailed-mode .grid .photo .heart {grid-column:3;grid-row:1;position:static;opacity:1;justify-self:center}
+.detailed-mode .grid .play {width:30px;height:30px;font-size:14px}
+.detailed-mode .grid .kind-tag {display:none}
+#viewer .stage audio {width:min(85%,680px);max-width:100%;z-index:1}
+
 </style>
 </head>
 <body>
 <header class="top">
   <div class="top-left">
-    <h1>▦ freedom_gallery</h1><span id="results" class="results-header" aria-live="polite">Choose a media library folder.</span><span class="small" id="libraryName" hidden aria-hidden="true">No library selected</span>
+    <h1>♫ Freedom Music Manager</h1><span id="results" class="results-header" aria-live="polite">Choose a media library folder.</span><span class="small" id="libraryName" hidden aria-hidden="true">No library selected</span>
   </div>
   <div class="filters">
     <input id="query" type="search" placeholder="Search… (/)" title="Search filename, path or tag; press / to focus" aria-label="Search media">
@@ -942,8 +958,8 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
       <input id="folderLock" type="checkbox" checked aria-label="Lock selected folder" />
       <span class="folder-lock-icons" aria-hidden="true"><span id="folderLockIcon">🔒</span><span>📁</span></span>
     </label>
-    <select id="kind" aria-label="Media type"><option value="">Photos & videos</option><option value="image">Photos only</option><option value="video">Videos only</option></select>
-    <button class="btn layout-toggle" id="layoutToggle" type="button" aria-pressed="false" title="Switch between classic cards and a compact, edge-to-edge square media grid. Your choice is saved for this gallery.">▦ Instagram mode</button>
+    <select id="kind" aria-label="Audio format"><option value="">All audio formats</option><option value="mp3">MP3</option><option value="flac">FLAC</option><option value="wav">WAV</option><option value="ogg">OGG</option><option value="m4a">M4A</option><option value="aac">AAC</option><option value="opus">OPUS</option><option value="aiff">AIFF</option><option value="aif">AIF</option><option value="alac">ALAC</option><option value="wma">WMA</option></select>
+    <button class="btn layout-toggle" id="layoutToggle" type="button" aria-pressed="false" title="Switch between classic cards and detailed track list. Your choice is saved.">☰ Detailed View</button>
   </div>
   <div class="top-right">
     <span id="status" class="small">Ready</span>
@@ -1003,8 +1019,8 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
     <div id="gallery" class="grid"></div>
     <button class="btn" id="loadMore" hidden>Load more</button>
     <div id="welcome" class="empty">
-      <h2>Photos and videos, offline and organized</h2>
-      <p>Choose your media library root (or the included demo-gallery folder to try the app). The gallery finds photos and videos in subfolders. Favorites, albums, tags and the file index are human-readable files in <code>__gallery/data/</code>. Thumbnails are stored in <code>__gallery/data/thumbs/</code>.</p>
+      <h2>Your music, offline and organized</h2>
+      <p>Choose your media library root (or the included demo-gallery folder to try the app). The music manager finds audio files in subfolders. Favorites, albums, tags and the file index are human-readable files in <code>__gallery/data/</code>. Thumbnails are stored in <code>__gallery/data/thumbs/</code>.</p>
       <button class="btn primary" id="openFolder2">Choose folder</button>
       <p class="small">Works in Chrome and Edge. Your photos never leave your computer.</p>
     </div>
@@ -1012,7 +1028,7 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
 </div>
 <dialog id="viewer">
   <div class="viewer">
-    <div class="stage" id="viewerStage"><button id="prev" title="Previous (←)">‹</button><img id="bigImage" alt="Selected photo" hidden><video id="bigVideo" controls preload="metadata" playsinline hidden></video><button id="next" title="Next (→)">›</button></div>
+    <div class="stage" id="viewerStage"><button id="prev" title="Previous (←)">‹</button><img id="bigImage" alt="Selected photo" hidden><audio id="bigVideo" controls preload="metadata" hidden></audio><button id="next" title="Next (→)">›</button></div>
     <section class="details">
       <button class="close" id="closeViewer" title="Close (Esc)">×</button>
       <h2 id="fileLabel"></h2><div id="pathLabel"></div>
@@ -1084,8 +1100,9 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
 'use strict';
 // Media gallery v7.0: portable collections, themes, demo support, and touch/mouse selection.
 const el = id => document.getElementById(id);
-const IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif|bmp|svg)$/i;
-const VIDEO_EXT = /\.(mp4|m4v|webm|ogv|mov|mkv|avi)$/i;
+const AUDIO_EXT = /\.(mp3|flac|wav|ogg|m4a|aac|opus|aiff|aif|alac|wma)$/i;
+function audioFormat(path){return (path.split('.').at(-1)||'').toLowerCase()}
+const DEFAULT_COVER='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><rect width="300" height="300" fill="#252c38"/><circle cx="150" cy="150" r="115" fill="#151b25" stroke="#4a5568" stroke-width="2"/><circle cx="150" cy="150" r="84" fill="none" stroke="#364152" stroke-width="2"/><circle cx="150" cy="150" r="37" fill="#ba783d"/><circle cx="150" cy="150" r="8" fill="#151b25"/><path d="M105 70 A95 95 0 0 1 232 116" stroke="#66768b" fill="none" stroke-width="3"/></svg>');
 const META_FOLDER = '__gallery';
 const DATA_FOLDER = 'data';
 const LEGACY_META_FOLDER = '_gallery';
@@ -1205,7 +1222,7 @@ function syncFilterControls(){
 }
 
 
-function typeOf(path){return IMAGE_EXT.test(path)?'image':VIDEO_EXT.test(path)?'video':null}
+function typeOf(path){return AUDIO_EXT.test(path)?'audio':null}
 function setStatus(s){el('status').textContent=s}
 function toast(s){const n=el('toast');n.textContent=s;n.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>n.style.display='none',5500)}
 function lines(s){return s.split(/\r?\n/).map(x=>x.trim()).filter(x=>x&&!x.startsWith('#'))}
@@ -1677,19 +1694,20 @@ async function uiPrefsOp(mode,operation){
 }
 let layoutMode='classic';
 function applyLayout(mode){
-  layoutMode=mode==='instagram'?'instagram':'classic';
+  layoutMode=(mode==='detailed'||mode==='instagram')?'detailed':'classic';
   updateSelectionUI();
-  document.body.classList.toggle('instagram-mode',layoutMode==='instagram');
+  document.body.classList.toggle('detailed-mode',layoutMode==='detailed');
   const b=el('layoutToggle');
-  b.setAttribute('aria-pressed',String(layoutMode==='instagram'));
-  b.title=layoutMode==='instagram'?'Instagram mode is on. Click to return to classic cards.':'Switch to a gapless grid of square thumbnails (5–6 columns on wide screens).';
+  b.setAttribute('aria-pressed',String(layoutMode==='detailed'));
+  b.textContent=layoutMode==='detailed'?'▦ Classic View':'☰ Detailed View';
+  b.title=layoutMode==='detailed'?'Return to classic cover cards.':'Switch to detailed track list.';
 }
 async function restoreLayoutPreference(){
   try{const saved=await uiPrefsOp('readonly',store=>store.get('layout'));applyLayout(saved?.value)}
   catch(e){console.warn('Could not load layout preference:',e)}
 }
 function toggleLayout(){
-  applyLayout(layoutMode==='instagram'?'classic':'instagram');
+  applyLayout(layoutMode==='detailed'?'classic':'detailed');
   void uiPrefsOp('readwrite',store=>store.put({id:'layout',value:layoutMode})).catch(e=>{
     console.warn('Could not save layout preference:',e);
     toast('Layout changed, but this browser could not remember it.');
@@ -1892,7 +1910,7 @@ function filterAndRender(){
       const matches=collectionOperator==='OR'?predicates.some(Boolean):predicates.every(Boolean);
       if(!matches)return false;
     }
-    if(kind&&item.kind!==kind)return false;
+    if(kind&&audioFormat(path)!==kind)return false;
     if(!globalScope&&folder&&!path.startsWith(folder+'/'))return false;
     if(q&&!path.toLocaleLowerCase('cs').includes(q)&&!(tags.get(path)||[]).some(t=>t.toLocaleLowerCase('cs').includes(q)))return false;
     return true;
@@ -1908,11 +1926,11 @@ function renderCards(){
   for(const item of slice){
     const card=document.createElement('article');card.className='photo'+(trash.has(item.path)?' in-trash':'')+(selectedPaths.has(item.path)?' is-selected':'');card.dataset.path=item.path;
     let media,thumbnail;
-    if(item.kind==='video'){
-      media=document.createElement('button');media.className='video-tile';media.title=item.name;media.setAttribute('aria-label','Open video: '+item.name);
-      thumbnail=document.createElement('img');thumbnail.className='thumb';thumbnail.alt=item.name;thumbnail.dataset.path=item.path;
+    if(item.kind==='audio'){
+      media=document.createElement('button');media.className='video-tile';media.title=item.name;media.setAttribute('aria-label','Play track: '+item.name);
+      thumbnail=document.createElement('img');thumbnail.className='thumb';thumbnail.alt='Album cover';thumbnail.src=DEFAULT_COVER;thumbnail.dataset.path=item.path;
       const play=document.createElement('span');play.className='play';play.textContent='▶';
-      const tag=document.createElement('span');tag.className='kind-tag';tag.textContent='VIDEO';
+      const tag=document.createElement('span');tag.className='kind-tag';tag.textContent=audioFormat(item.path).toUpperCase();
       media.append(thumbnail,play,tag);media.onclick=e=>activateCard(item.path,e);
     }else{
       media=document.createElement('img');media.className='thumb';media.alt=item.name;media.title=item.name;media.loading='lazy';
@@ -1920,8 +1938,8 @@ function renderCards(){
     }
     const heart=document.createElement('button');heart.className='heart'+(favorites.has(item.path)?' on':'');heart.textContent=favorites.has(item.path)?'♥':'♡';heart.title='Toggle favorite';heart.setAttribute('aria-label',heart.title);
     heart.onclick=()=>{toggleFavorite(item.path);if(activeView.type==='favorites')filterAndRender();else{heart.className='heart'+(favorites.has(item.path)?' on':'');heart.textContent=favorites.has(item.path)?'♥':'♡'}};
-    const meta=document.createElement('div');meta.className='meta';const name=document.createElement('span');name.className='filename';name.textContent=item.name;name.title=item.path;meta.append(name);
-    meta.setAttribute('role','button');meta.setAttribute('tabindex','0');meta.setAttribute('aria-label','Select '+item.name);meta.title='Select this photo (Shift-click for range)';
+    const meta=document.createElement('div');meta.className='meta';const name=document.createElement('span');name.className='filename';name.textContent=item.name.replace(/\.[^.]+$/,'');name.title=item.path;const details=document.createElement('span');details.className='track-details';details.textContent=audioFormat(item.path).toUpperCase()+' · '+(item.path.includes('/')?item.path.split('/').slice(0,-1).join('/'):'Library root');meta.append(name,details);
+    meta.setAttribute('role','button');meta.setAttribute('tabindex','0');meta.setAttribute('aria-label','Select '+item.name);meta.title='Select this track (Shift-click for range)';
     const selectFromCaption=e=>{
       e.preventDefault();e.stopPropagation();
       // The caption always selects; the picture itself still opens the viewer.
@@ -1974,7 +1992,7 @@ function activateCard(path,event){
   if(suppressCardClick){event.preventDefault();event.stopPropagation();return}
   // Classic mode: clicking the picture always opens it; only its caption or
   // modifier-click selects. Instagram has no caption, so selecting mode stays available.
-  const selectOnPlainClick=selectingMode&&document.body.classList.contains('instagram-mode');
+  const selectOnPlainClick=selectingMode&&document.body.classList.contains('detailed-mode');
   if(!(selectOnPlainClick||event.ctrlKey||event.metaKey||event.shiftKey)){
     void openViewer(path);return;
   }
@@ -2174,6 +2192,19 @@ async function videoThumbBlob(file){
     return await canvasBlob(canvas);
   }finally{video.pause();video.removeAttribute('src');video.load();URL.revokeObjectURL(url)}
 }
+async function audioCoverBlob(item){
+  const parts=item.path.split('/'),filename=parts.pop(),prefix=parts.length?parts.join('/')+'/':'';
+  const stem=filename.replace(/\.[^.]+$/,'');
+  for(const base of [stem,'cover','folder','front','album']){
+    for(const ext of ['jpg','jpeg','png','webp','JPG','PNG']){
+      try{
+        const art=await itemFile({path:prefix+base+'.'+ext});
+        return await imageThumbBlob(art);
+      }catch(e){if(e.name!=='NotFoundError'&&e.name!=='TypeMismatchError')console.debug('Cover unavailable',e)}
+    }
+  }
+  return null;
+}
 async function persistedThumb(item,file,version){
   const thumbRoot=root;
   const existing=thumbIndex.get(item.path);
@@ -2184,7 +2215,8 @@ async function persistedThumb(item,file,version){
     }}catch(e){if(e.name!=='NotFoundError')console.warn('Could not load cached thumbnail:',e)}
   }
   // Unsupported videos retain the fallback tile, without breaking the rest of the gallery.
-  const blob=item.kind==='video'?await videoThumbBlob(file):await imageThumbBlob(file);
+  const blob=await audioCoverBlob(item);
+  if(!blob)return null;
   if(version!==scanNo)return null;
   const url=URL.createObjectURL(blob);
   // Saving cache is best-effort. Even if disk is read-only, the in-memory thumbnail still works.
@@ -2245,7 +2277,7 @@ async function openViewer(path){
   if(!el('viewer').open)el('viewer').showModal();
   try{const file=await itemFile(item);if(viewerNo!==req||currentPath!==path||!el('viewer').open)return;
     bigURL=URL.createObjectURL(file);
-    if(item.kind==='video'){
+    if(item.kind==='audio'){
       const v=el('bigVideo');v.hidden=false;v.src=bigURL;v.load();
     }else{const img=el('bigImage');img.hidden=false;img.src=bigURL}
   }catch(e){toast('Could not open file; try refreshing the index: '+e.message)}
@@ -2913,7 +2945,7 @@ async function viewerRemoveCollection(){
   await saveTags();viewerCollectionSelection='';renderViewerCollections();renderTagList();filterAndRender();
 }
 function updateMembership(){}
-async function openViewer(path){ const item=byPath.get(path); if(!item)return; releaseViewerMedia(); const req=viewerNo; currentPath=path; viewerCollectionSelection=''; el('fileLabel').textContent=item.name; el('pathLabel').textContent=item.path; updateViewerFavorite(); updateViewerTrashButtons(); switchViewerCollections(viewerCollectionMode); if(!el('viewer').open) el('viewer').showModal(); try{ const file=await itemFile(item); if(viewerNo!==req||currentPath!==path||!el('viewer').open)return; bigURL=URL.createObjectURL(file); if(item.kind==='video'){ const v=el('bigVideo'); v.hidden=false; v.src=bigURL; v.load(); } else { const img=el('bigImage'); img.hidden=false; img.src=bigURL; } }catch(e){ toast('Could not open file; try refreshing the index: '+e.message) } }
+async function openViewer(path){ const item=byPath.get(path); if(!item)return; releaseViewerMedia(); const req=viewerNo; currentPath=path; viewerCollectionSelection=''; el('fileLabel').textContent=item.name; el('pathLabel').textContent=item.path; updateViewerFavorite(); updateViewerTrashButtons(); switchViewerCollections(viewerCollectionMode); if(!el('viewer').open) el('viewer').showModal(); try{ const file=await itemFile(item); if(viewerNo!==req||currentPath!==path||!el('viewer').open)return; bigURL=URL.createObjectURL(file); if(item.kind==='audio'){ const v=el('bigVideo'); v.hidden=false; v.src=bigURL; v.load(); } else { const img=el('bigImage'); img.hidden=false; img.src=bigURL; } }catch(e){ toast('Could not open file; try refreshing the index: '+e.message) } }
 function closeViewer(){ releaseViewerMedia(); currentPath=null; if(el('viewer').open) el('viewer').close(); }
 
 const HELP={
@@ -2923,7 +2955,7 @@ const HELP={
   rescan:'Review a confirmation, then rebuild the index and automatically clean stale metadata references.',
   rebuildThumbs:'Confirm removal of generated thumbnails only. Originals and personal metadata are unchanged.',
   themeSelect:'Follow your system theme or force the Light and Dark schemes shown in the screenshots.',
-  navAll:'Display every indexed image and video except items in in-gallery Trash.',
+  navAll:'Display every indexed audio track except items in Trash.',
   navFav:'Show favorites from __gallery/data/favorites.txt across all folders.',
   navTrash:'Show hidden media. Original files remain on disk until permanently deleted.',
   showAlbums:'Display albums. OFF allows one filter; OR / AND combine albums, tags, Favorites and Trash.',
@@ -2934,7 +2966,7 @@ const HELP={
   query:'Search filenames, paths, and tags. Combines with folder and media-type filters using AND.',
   folder:'Filter by folder and subfolders. Lock folder keeps this choice when filtering albums/tags; OR temporarily ignores it.',
   kind:'Choose all media, photos only, or videos only.',
-  layoutToggle:'Switch between Classic cards and the gapless Instagram grid. The active mode gets a green outline.',
+  layoutToggle:'Switch between Classic cover cards and the detailed track list.',
   deleteAllTrash:'Permanently delete every indexed file currently in the in-gallery Trash. The operating system recycle bin is not used.',
   favViewer:'Press F to favorite.',
   viewerCollectionQuery:'Search collections for the currently open file.',
@@ -3151,7 +3183,7 @@ mediaDialog.addEventListener('pointerdown',e=>{ dismissPointerStartedOnBackgroun
 mediaDialog.addEventListener('click',e=>{ const backgroundClick=e.target===mediaStage||hitViewerBackdrop(e); if(dismissPointerStartedOnBackground&&backgroundClick) closeViewer(); dismissPointerStartedOnBackground=false; });
 mediaDialog.addEventListener('pointercancel',()=>{dismissPointerStartedOnBackground=false}); mediaDialog.addEventListener('close',()=>{dismissPointerStartedOnBackground=false});
 el('prev').onclick=()=>moveViewer(-1); el('next').onclick=()=>moveViewer(1);
-el('bigVideo').addEventListener('error',()=>{if(!el('bigVideo').hidden)toast('This browser cannot play the video (unsupported format or codec). Original file is unchanged.')});
+el('bigVideo').addEventListener('error',()=>{if(!el('bigVideo').hidden)toast('This browser cannot play the audio (unsupported format or codec). Original file is unchanged.')});
 document.addEventListener('keydown',e=>{
   const editing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||document.activeElement?.isContentEditable;
   if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='z'&&!editing){
