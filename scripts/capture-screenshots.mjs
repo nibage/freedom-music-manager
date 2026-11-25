@@ -131,6 +131,18 @@ try {
   await page.locator('#musicSort').selectOption('title');
   await page.waitForFunction(() => filtered[0]?.music?.title === 'Blue Horizon');
   await page.locator('#musicSort').selectOption('auto');
+  // Collection actions must fit in the narrow desktop sidebar, not just the viewport.
+  await page.waitForFunction(()=>{
+    const aside=document.querySelector('.aside-content').getBoundingClientRect();
+    const remove=document.getElementById('removeCollection').getBoundingClientRect();
+    return remove.right<=aside.right+1 && remove.width>0 && document.getElementById('tagEmpty').hidden;
+  });
+  await page.locator('#showTags').click();
+  await page.waitForFunction(()=>!document.getElementById('tagEmpty').hidden&&document.getElementById('albumList').hidden);
+  await page.locator('#showAlbums').click();
+  await page.waitForFunction(()=>document.getElementById('tagEmpty').hidden&&!document.getElementById('albumList').hidden);
+  console.log('PASS: collection actions fit sidebar and empty tags only appear in Tags tab');
+
   console.log('PASS: library scan, metadata filters, real WAV playback, persistent playback, queue, collection save, cache reuse, sorting');
   const dest = join(rootPath, 'docs', 'screenshots');
   await mkdir(dest, { recursive: true });
