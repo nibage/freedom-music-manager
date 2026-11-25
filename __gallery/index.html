@@ -1088,9 +1088,9 @@ body {padding-bottom:var(--music-player-height)}
       <datalist id="knownTags"></datalist>
       <button class="btn" id="bulkAddTag" type="button" title="Apply this tag to every selected file">Add tag</button>
       <button class="btn" id="bulkTrash" type="button" title="Move selected files to the in-gallery Trash without deleting original files from disk.">Move to Trash</button>
-      <button class="btn" id="bulkQueue" type="button">＋ Queue</button><button class="btn" id="bulkPlayNext" type="button">Play next</button>
-       <button class="btn" id="clearSelection" type="button" title="Clear the selection and return to normal single-photo opening.">✕ Clear selection</button>
+      <button class="btn" id="clearSelection" type="button" title="Clear the selection and return to normal single-photo opening.">✕ Clear selection</button>
     </div>
+    <div id="musicSelectionActions" class="selection-toolbar" hidden><span id="musicSelectedCount" class="selection-count"></span><button class="btn" id="bulkQueue" type="button">＋ Queue</button><button class="btn" id="bulkPlayNext" type="button">Play next</button></div>
     <div id="gallery" class="grid"></div>
     <button class="btn" id="loadMore" hidden>Load more</button>
     <div id="welcome" class="empty">
@@ -1140,7 +1140,7 @@ body {padding-bottom:var(--music-player-height)}
     <div id="queueList" class="queue-list" aria-label="Playback queue"></div>
     <div class="queue-actions"><button class="btn" id="queuePagePrev" type="button">Previous page</button><span id="queuePageLabel" class="small"></span><button class="btn" id="queuePageNext" type="button">Next page</button></div>
     <div class="queue-heading"><strong>Saved playlists</strong></div>
-    <div class="queue-playlist"><select id="playlistSelect" aria-label="Saved playlists"><option value="">Choose playlist…</option></select><button class="btn" id="playlistLoad" type="button">Load queue</button><button class="btn" id="playlistAppend" type="button">Append</button><button class="btn" id="playlistDelete" type="button">Delete</button></div>
+    <div class="queue-playlist"><select id="playlistSelect" aria-label="Saved playlists"><option value="">Choose playlist…</option></select><button class="btn" id="playlistPlay" type="button">▶ Play playlist</button><button class="btn" id="playlistLoad" type="button">Load queue</button><button class="btn" id="playlistAppend" type="button">Append</button><button class="btn" id="playlistDelete" type="button">Delete</button></div>
     <div class="queue-playlist"><input id="playlistName" maxlength="80" placeholder="Playlist name" aria-label="Playlist name"><button class="btn" id="playlistSave" type="button">Save queue as playlist</button></div>
     <details id="historyDetails"><summary class="queue-history-summary">Listening history</summary><div class="queue-actions"><button class="btn" id="historyClear" type="button">Clear history</button></div><div class="queue-list" id="historyList"></div></details>
     <div id="queueFeedback" aria-live="polite"></div>
@@ -1387,11 +1387,12 @@ async function loadThumbManifest(){
 }
 // v4 — portable catalogue of file properties and *optional* small content samples.
 // No opaque database; all information here is reproducible from the media files.
-function referencedPaths(){
+function referencedPaths(includeMusic=false){
   const paths=new Set(favorites);
   for(const path of tags.keys())paths.add(path);
   for(const path of trash)paths.add(path);
   for(const members of albums.values())for(const path of members)paths.add(path);
+  if(includeMusic){for(const members of musicPlaylists.values())for(const path of members)paths.add(path);for(const entry of playerHistory)paths.add(entry.path)}
   return paths;
 }
 function missingReferences(){return [...referencedPaths()].filter(p=>!byPath.has(p))}
@@ -1442,7 +1443,7 @@ async function sampleSignature(file){
   return Array.from(new Uint8Array(digest),n=>n.toString(16).padStart(2,'0')).join('');
 }
 async function inspectMedia(items,previous,scanId){
-  const out=new Map(),references=referencedPaths();let failed=0;
+  const out=new Map(),references=referencedPaths(true);let failed=0;
   for(let i=0;i<items.length;i++){
     if(scanId!==scanNo)return null;
     const item=items[i];
@@ -1459,7 +1460,7 @@ async function inspectMedia(items,previous,scanId){
   return out;
 }
 async function suggestMoves(previous,next,items,oldPaths,scanId){
-  const references=referencedPaths();
+  const references=referencedPaths(true);
   const missing=[...references].filter(p=>oldPaths.has(p)&&!next.has(p)&&previous.has(p));
   if(!missing.length)return [];
   const newItems=items.filter(x=>!oldPaths.has(x.path)&&next.has(x.path));
@@ -1540,7 +1541,9 @@ async function migrateMoves(selected,next){
   if(favChanged)tasks.push(saveFavorites());if(tagsChanged)tasks.push(saveTags());if(trashChanged)tasks.push(saveTrash());
   for(const name of changedAlbums)tasks.push(saveAlbum(name));
   const musicMoves=new Map(selected.map(({from,to})=>[from,to]));
-  if(musicCollectionsWritable){for(const [name,paths] of musicPlaylists)musicPlaylists.set(name,remapMusicPaths(paths,musicMoves));playerHistory=playerHistory.map(x=>({...x,path:musicMoves.get(x.path)||x.path}));tasks.push(saveMusicCollections());}
+  playerQueue=remapMusicPaths(playerQueue,musicMoves);playerOriginalOrder=remapMusicPaths(playerOriginalOrder,musicMoves);
+  if(musicMoves.has(playerPath))playerPath=musicMoves.get(playerPath);
+  if(musicCollectionsWritable){for(const [name,paths] of musicPlaylists)musicPlaylists.set(name,remapMusicPaths(paths,musicMoves));playerHistory=playerHistory.map(x=>({...x,path:musicMoves.get(x.path)||x.path}));tasks.push(saveMusicCollections().then(ok=>{if(!ok)throw Error('Could not save moved music collection references')}));}
   await Promise.all(tasks);
   await flushThumbManifest();renderTagList();return selected.length;
 }
@@ -1905,6 +1908,7 @@ function snapshotTracks(items,path,isEligible){
 }
 
 function nextQueueTrack(queue,path,step,eligible,repeat='off'){
+  if(step!==1&&step!==-1)return null;
   const next=adjacentTrack(queue,path,step,eligible);if(next)return next;
   if(repeat!=='all'||!queue.includes(path))return null;
   return (step>0?queue:[...queue].reverse()).find(eligible)||null;
@@ -1998,7 +2002,7 @@ async function startTrack(path,newQueue=true){
   try{
     const file=await itemFile(item);
     if(req!==playerRequest||root!==activeRoot)return;
-    if(!playerEligible(path)){stopMusic();return}
+    if(!playerEligible(path)){stopMusic(false);playerPath=null;queueChanged();updatePlayerTrack();return}
     playerURL=URL.createObjectURL(file);
     playerAudio.src=playerURL;playerAudio.load();playerLoading=false;
     void loadTrackMetadata(item,file);
@@ -2017,12 +2021,12 @@ function stepMusic(step){
   if(!playerPath)return;
   if(step<0&&playerAudio.currentTime>=3){playerAudio.currentTime=0;updatePlayerTime();return}
   const next=nextPlayerPath(step);
-  if(next===playerPath){playerAudio.currentTime=0;void resumePlayer()}else if(next)void startTrack(next,false);
+  if(next===playerPath&&playerURL&&!playerLoading){playerAudio.currentTime=0;void resumePlayer()}else if(next)void startTrack(next,false);
 }
 function reconcileMusicPlayer(){
   if(playerPath&&!playerEligible(playerPath)){stopMusic(false);playerPath=null;queueChanged();updatePlayerTrack();return}
   if(playerPath&&el('playerCover').dataset.path!==playerPath)updatePlayerTrack();
-  else updatePlayerControls();
+  queueChanged();
 }
 function applyPlayerVolume(){
   const v=playerAudio.volume,muted=playerAudio.muted;
@@ -2073,8 +2077,8 @@ function parseMusicCollections(raw){
 async function loadMusicCollections(){
   musicPlaylists=new Map();playerHistory=[];musicCollectionsWritable=false;musicHistoryRequest=-1;queuePage=0;
   try{
-    const dir=await getMetaDir(false),raw=await readText(dir,MUSIC_COLLECTIONS_FILE);
-    if(raw){const data=parseMusicCollections(raw);musicPlaylists=data.playlists;playerHistory=data.history}
+    const dir=await getMetaDir(false);
+    if(dir&&await hasFile(dir,MUSIC_COLLECTIONS_FILE)){const data=parseMusicCollections(await readText(dir,MUSIC_COLLECTIONS_FILE));musicPlaylists=data.playlists;playerHistory=data.history}
     musicCollectionsWritable=true;
   }catch(e){toast('Could not read music collections; saving disabled to protect the existing file. '+e.message)}
   renderPlaylistOptions();
@@ -2082,10 +2086,10 @@ async function loadMusicCollections(){
 function saveMusicCollections(){
   if(!root||!musicCollectionsWritable)return Promise.resolve(false);
   const r=root,body=JSON.stringify({version:1,playlists:[...musicPlaylists].map(([name,paths])=>({name,paths})),history:playerHistory},null,2)+'\n';
-  return enqueueSave('music collections',async()=>writeText(await getMetaDir(true,r),MUSIC_COLLECTIONS_FILE,body)).then(()=>true,()=>false);
+  return enqueueSave('music collections',async()=>writeText(await getMetaDir(true,r),MUSIC_COLLECTIONS_FILE,body)).then(()=>true,e=>{queueNotice('Could not save music collections: '+e.message);return false});
 }
 function recordListening(){
-  if(!root||!playerPath||!playerEligible(playerPath)||musicHistoryRequest===playerRequest)return;
+  if(!root||!playerPath||!playerURL||playerLoading||playerAudio.paused||!playerEligible(playerPath)||musicHistoryRequest===playerRequest)return;
   musicHistoryRequest=playerRequest;playerHistory.unshift({path:playerPath,at:Date.now()});
   playerHistory=playerHistory.slice(0,MUSIC_HISTORY_LIMIT);
   void saveMusicCollections();if(el('musicQueueDialog').open)renderHistory();
@@ -2154,7 +2158,7 @@ function renderPlaylistOptions(){
 }
 function updatePlaylistButtons(){
   const selected=musicPlaylists.has(el('playlistSelect').value);
-  for(const id of ['playlistLoad','playlistAppend'])el(id).disabled=!root||!selected;
+  for(const id of ['playlistPlay','playlistLoad','playlistAppend'])el(id).disabled=!root||!selected;
   el('playlistDelete').disabled=!root||!selected||!musicCollectionsWritable;
   el('playlistSave').disabled=!root||!musicCollectionsWritable||!playerQueue.length||!validPlaylistName(el('playlistName').value.trim());
 }
@@ -2186,6 +2190,12 @@ function initMusicCollections(){
   el('viewerPlayNext').onclick=()=>{if(currentPath)addMusicQueue([currentPath],true)};
   el('playlistSelect').onchange=()=>{el('playlistName').value=el('playlistSelect').value;updatePlaylistButtons()};
   el('playlistName').oninput=updatePlaylistButtons;
+  el('playlistPlay').onclick=()=>{
+    const paths=musicPlaylists.get(el('playlistSelect').value);if(!paths)return;const first=paths.find(playerEligible);
+    if(!first){queueNotice('No playable tracks in this playlist.');return}
+    setPlayerQueue(paths);if(first===playerPath&&playerURL&&!playerLoading)playerAudio.currentTime=0;void startTrack(first,false);
+    queueNotice('Playing selected playlist.');
+  };
   el('playlistLoad').onclick=()=>{
     const paths=musicPlaylists.get(el('playlistSelect').value);if(!paths)return;
     // Keep an already playing track as anchor; loading a list does not start playback.
@@ -2401,7 +2411,7 @@ async function forgetLibraries(){
 async function activateLibrary(picked){
   if(thumbResetting||deletingMedia)throw Error('Wait for the current gallery maintenance operation to finish.');
   await flushThumbManifest();await saveQueue.catch(()=>{});
-  scanNo++;clearTimeout(fileInfoTimer);if(el('viewer').open)closeViewer();stopMusic();playerRepeat='off';clearThumbs();
+  scanNo++;clearTimeout(fileInfoTimer);if(el('viewer').open)closeViewer();stopMusic();playerRepeat='off';queueChanged();clearThumbs();
   clearSelection();lastUndo=null;root=picked;configuredRootPath='';dirCache=new Map([['',picked]]);images=[];byPath.clear();
   el('libraryName').textContent=picked.name;el('libraryName').title=picked.name;activeView={type:'all'};visibleCount=80;
   el('folder').value='';el('kind').value='';el('query').value='';setStatus('Loading metadata…');
@@ -3356,7 +3366,9 @@ function updateSelectionUI(){
   updateResultsLine();
   updateSelectionActionHints();
   updateSelectedDeleteButton();
-  el('bulkQueue').disabled=el('bulkPlayNext').disabled=!root||!selectedPaths.size||deletingMedia||scanInProgress||thumbResetting;
+  const playableSelected=[...selectedPaths].filter(playerEligible).length;
+  el('musicSelectionActions').hidden=!playableSelected;el('musicSelectedCount').textContent=playableSelected+' selected';
+  el('bulkQueue').disabled=el('bulkPlayNext').disabled=!root||!playableSelected||deletingMedia||scanInProgress||thumbResetting;
 }
 function clearSelection(){selectedPaths.clear();selectingMode=false;selectionAnchor=null;updateSelectionUI();}
 
@@ -3863,7 +3875,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape' && selectedPaths.size){ clearSelection(); return; }
   if(e.key==='/'&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)){ e.preventDefault(); el('query').focus(); }
 });
-document.addEventListener('click',e=>{ if(selectedPaths.size && !dragClickPending() && !e.target.closest('.photo,.nav-btn,.collection-action,.collection-tab,.tag-chip,.results-toolbar button,.filters,.viewer,.dialog-body,.top,#musicPlayer,aside input,aside select,main input,main select')) clearSelection(); });
+document.addEventListener('click',e=>{ if(selectedPaths.size && !dragClickPending() && !e.target.closest('.photo,.nav-btn,.collection-action,.collection-tab,.tag-chip,.results-toolbar button,.selection-toolbar,.filters,.viewer,.dialog-body,.top,#musicPlayer,#musicQueueDialog,aside input,aside select,main input,main select')) clearSelection(); });
 
 /* Mouse marquee: can begin from any non-control area of <main>, not just grid cells. */
 let viewportMarquee=null;
