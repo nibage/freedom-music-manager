@@ -1117,16 +1117,16 @@ body {padding-bottom:var(--music-player-height)}
       <datalist id="knownTags"></datalist>
       <button class="btn" id="bulkAddTag" type="button" title="Apply this tag to every selected file">Add tag</button>
       <button class="btn" id="bulkTrash" type="button" title="Move selected files to the in-gallery Trash without deleting original files from disk.">Move to Trash</button>
-      <button class="btn" id="clearSelection" type="button" title="Clear the selection and return to normal single-photo opening.">✕ Clear selection</button>
+      <button class="btn" id="clearSelection" type="button" title="Clear the selection and return to normal single-track opening.">✕ Clear selection</button>
     </div>
     <div id="musicSelectionActions" class="selection-toolbar" hidden><span id="musicSelectedCount" class="selection-count"></span><button class="btn" id="bulkQueue" type="button">＋ Queue</button><button class="btn" id="bulkPlayNext" type="button">Play next</button></div>
     <div id="gallery" class="grid"></div>
     <button class="btn" id="loadMore" hidden>Load more</button>
     <div id="welcome" class="empty">
       <h2>Your music, offline and organized</h2>
-      <p>Choose your media library root (or the included demo-gallery folder to try the app). The music manager finds audio files in subfolders. Favorites, music collections, tags and the file index are human-readable files in <code>__gallery/data/</code>. Thumbnails are stored in <code>__gallery/data/thumbs/</code>.</p>
+      <p>Choose your media library root (or the included demo-music folder to try the app). The music manager finds audio files in subfolders. Favorites, music collections, tags and the file index are human-readable files in <code>__music/data/</code>. Thumbnails are stored in <code>__music/data/thumbs/</code>.</p>
       <button class="btn primary" id="openFolder2">Choose folder</button>
-      <p class="small">Works in Chrome and Edge. Your photos never leave your computer.</p>
+      <p class="small">Works in Chrome and Edge. Your music never leaves your computer.</p>
     </div>
   </main>
 </div>
@@ -1252,9 +1252,12 @@ const el = id => document.getElementById(id);
 const AUDIO_EXT = /\.(mp3|flac|wav|ogg|m4a|aac|opus|aiff|aif|alac|wma)$/i;
 function audioFormat(path){return (path.split('.').at(-1)||'').toLowerCase()}
 const DEFAULT_COVER='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><rect width="300" height="300" fill="#252c38"/><circle cx="150" cy="150" r="115" fill="#151b25" stroke="#4a5568" stroke-width="2"/><circle cx="150" cy="150" r="84" fill="none" stroke="#364152" stroke-width="2"/><circle cx="150" cy="150" r="37" fill="#ba783d"/><circle cx="150" cy="150" r="8" fill="#151b25"/><path d="M105 70 A95 95 0 0 1 232 116" stroke="#66768b" fill="none" stroke-width="3"/></svg>');
-const META_FOLDER = '__gallery';
+const META_FOLDER = '__music';
+const PREVIOUS_META_FOLDER = '__gallery';
+const COLLECTIONS_FOLDER = 'collections';
 const DATA_FOLDER = 'data';
 const LEGACY_META_FOLDER = '_gallery';
+const RESERVED_META_FOLDERS=[META_FOLDER,PREVIOUS_META_FOLDER,LEGACY_META_FOLDER];
 const INDEX_NAME = 'files.txt';
 const TRASH_NAME = 'trash.txt';
 const FULL_PATH_CONFIG_NAME = 'path-config.json';
@@ -1295,18 +1298,18 @@ function expectedLibraryName(){
   try{
     if(location.protocol!=='file:')return null;
     const chunks=decodeURIComponent(location.pathname).split('/').filter(Boolean);
-    if(chunks.length<3||chunks[chunks.length-2]!==META_FOLDER)return null;
+    if(chunks.length<3||!RESERVED_META_FOLDERS.includes(chunks[chunks.length-2]))return null;
     return chunks[chunks.length-3];
   }catch(_){return null}
 }
 async function confirmLibrarySelection(handle){
   const expected=expectedLibraryName();
-  if(!expected||expected.toLocaleLowerCase()===handle.name.toLocaleLowerCase()||handle.name==='demo-gallery')return true;
+  if(!expected||expected.toLocaleLowerCase()===handle.name.toLocaleLowerCase()||['demo-gallery','demo-music'].includes(handle.name))return true;
   return await galleryCollectionDialog({
     title:'Open a different library?',
-    message:`This HTML file is inside “${expected}/__gallery”, but you selected “${handle.name}”.\n\n`+
+    message:`This HTML file is inside “${expected}/__music”, but you selected “${handle.name}”.\n\n`+
       'Opening a different library would read and modify its metadata.\n'+
-      'Cancel to keep your two galleries independent.',
+      'Cancel to keep your two music libraries independent.',
     action:'Open anyway'
   });
 }
@@ -1376,7 +1379,7 @@ function setStatus(s){el('status').textContent=s}
 function toast(s){const n=el('toast');n.textContent=s;n.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>n.style.display='none',5500)}
 function lines(s){return s.split(/\r?\n/).map(x=>x.trim()).filter(x=>x&&!x.startsWith('#'))}
 function serializePaths(xs){return [...xs].sort((a,b)=>a.localeCompare(b,'cs')).join('\n')+(xs.size?'\n':'')}
-function validPath(path){return !!path && !path.includes('\\') && !path.includes('\0') && path.split('/').every(p=>p&&p!=='.'&&p!=='..') && ![META_FOLDER,LEGACY_META_FOLDER].includes(path.split('/')[0]) && !!typeOf(path)}
+function validPath(path){return !!path && !path.includes('\\') && !path.includes('\0') && path.split('/').every(p=>p&&p!=='.'&&p!=='..') && !RESERVED_META_FOLDERS.includes(path.split('/')[0]) && !!typeOf(path)}
 function validAlbum(name){return !!name&&name.length<=80&&!/[\\/:*?"<>|\t\r\n]/.test(name)&&!/[. ]$/.test(name)&&name!=='.'&&name!=='..'}
 function cleanTag(s){return s.trim().replace(/[\t\r\n,]/g,' ').trim()}
 function validNewTag(name){return !!name && name.length<=80}
@@ -1570,6 +1573,7 @@ async function migrateMoves(selected,next){
   if(favChanged)tasks.push(saveFavorites());if(tagsChanged)tasks.push(saveTags());if(trashChanged)tasks.push(saveTrash());
   for(const name of changedAlbums)tasks.push(saveAlbum(name));
   const musicMoves=new Map(selected.map(({from,to})=>[from,to]));
+  for(const [from,to] of musicMoves){const old=musicMetadataCache.get(from),stat=next.get(to);if(old&&stat&&old.size===stat.size&&old.modified===stat.modified){musicMetadataCache.set(to,old);musicMetadataCache.delete(from);scheduleMusicCacheSave()}}
   playerQueue=remapMusicPaths(playerQueue,musicMoves);playerOriginalOrder=remapMusicPaths(playerOriginalOrder,musicMoves);
   if(musicMoves.has(playerPath))playerPath=musicMoves.get(playerPath);
   if(musicCollectionsWritable){playerHistory=playerHistory.map(x=>({...x,path:musicMoves.get(x.path)||x.path}));tasks.push(saveMusicCollections().then(ok=>{if(!ok)throw Error('Could not save moved music collection references')}));}
@@ -1579,13 +1583,13 @@ async function migrateMoves(selected,next){
 async function deleteAlbum(name){
   if(!albums.has(name)||!root)return;
   const r=root,count=albums.get(name).size;
-  const q=`Delete collection “${name}”${count?' ('+count+' items)':''}?\n\nOnly the collection file __gallery/data/albums/${name}.txt will be removed, NOT the original audio files.`;
+  const q=`Delete collection “${name}”${count?' ('+count+' items)':''}?\n\nOnly the collection file __music/data/collections/${name}.txt will be removed, NOT the original audio files.`;
   if(!await galleryCollectionDialog({title:'Remove music collection?',message:q,action:'Remove collection',danger:true})||root!==r)return;
   try{
     await saveQueue.catch(()=>{});
 
     if(root!==r)return;
-    const meta=await getMetaDir(false,r),ad=await maybeGetDir(meta,'albums');
+    const meta=await getMetaDir(false,r),ad=await maybeGetDir(meta,COLLECTIONS_FOLDER);
     if(!ad)throw Error('The albums directory does not exist');
     recordUndo('remove album');
     await ad.removeEntry(name+'.txt');
@@ -1637,7 +1641,7 @@ async function cleanupOrphans(automatic=false){
 // metadata, albums, media files and the file index are never touched.
 async function rebuildThumbnailCache(){
   if(!root||scanInProgress||thumbResetting)return;
-  if(!await galleryCollectionDialog({title:'Remove cached thumbnails?',message:'Delete generated WebP previews in __gallery/data/thumbs/? New previews are created when you browse. Original photos, favorites, tags, music collections and the file index remain unchanged.',action:'Remove thumbs',danger:true}))return;
+  if(!await galleryCollectionDialog({title:'Remove cached thumbnails?',message:'Delete generated WebP previews in __music/data/thumbs/? New previews are created when you browse. Original audio files, favorites, tags, music collections and the file index remain unchanged.',action:'Remove thumbs',danger:true}))return;
   thumbResetting=true;
   for(const id of ['rebuildThumbs','rescan','openFolder','openFolder2','recentFolders'])el(id).disabled=true;
   el('rebuildThumbs').textContent='Clearing thumbnail cache…';
@@ -1707,18 +1711,74 @@ async function readText(dir,name){if(!dir)return '';try{return await (await (awa
 async function writeText(dir,name,body){const h=await dir.getFileHandle(name,{create:true});const out=await h.createWritable();await out.write(body);await out.close()}
 async function maybeGetDir(parent,name){try{return await parent.getDirectoryHandle(name)}catch(e){if(e.name==='NotFoundError')return null;throw e}}
 async function hasFile(dir,name){try{await dir.getFileHandle(name);return true}catch(e){if(e.name==='NotFoundError')return false;throw e}}
+
+/* BEGIN MUSIC DIRECTORY MIGRATION */
+const MUSIC_MIGRATION_MARKER='music-layout-v1.json';
+const MIGRATION_FILES=['files.txt','favorites.txt','tags.tsv','tag-catalog.txt','trash.txt','media-info.tsv','path-config.json','music-collections.json','music-history.json'];
+function migrationCopyDecision(source,destination){
+  if(destination===null)return 'copy';
+  if(source===destination)return 'same';
+  return 'conflict';
+}
+async function copyMigrationText(source,dest,name){
+  const body=await readText(source,name),old=await hasFile(dest,name)?await readText(dest,name):null;
+  const decision=migrationCopyDecision(body,old);
+  if(decision==='conflict')throw Error('Conflicting existing metadata: '+name+'. Keep both directories and resolve the conflict before opening this library.');
+  if(decision==='copy')await writeText(dest,name,body);
+}
+async function prepareMusicLayout(r){
+  const oldRoots=[];
+  for(const name of [PREVIOUS_META_FOLDER,LEGACY_META_FOLDER]){
+    const folder=await maybeGetDir(r,name),data=folder?await maybeGetDir(folder,DATA_FOLDER):null;
+    if(data){let present=false;for await(const [key,h] of data.entries()){if(MIGRATION_FILES.includes(key)||key==='albums'||key===COLLECTIONS_FOLDER){present=true;break}}
+      if(present)oldRoots.push({name,data})}
+  }
+  const music=await maybeGetDir(r,META_FOLDER),current=music?await maybeGetDir(music,DATA_FOLDER):null;
+  if(current&&await hasFile(current,MUSIC_MIGRATION_MARKER)){
+    const marker=JSON.parse(await readText(current,MUSIC_MIGRATION_MARKER));
+    if(marker.version!==1)throw Error('Unsupported music directory layout');
+    return;
+  }
+  const localAlbums=current?await maybeGetDir(current,'albums'):null;
+  if(oldRoots.length>1)throw Error('Both legacy metadata directories contain library data. No files were changed; retain both and choose a single source before migration.');
+  if(!oldRoots.length&&!localAlbums)return;
+  const source=oldRoots[0];
+  if(!await galleryCollectionDialog({title:'Upgrade music library layout?',message:'Copy the existing library metadata to __music/data/ and ordered collections to collections/. Original metadata stays untouched as a backup. Generated cover previews will be rebuilt as needed. If conflicting files are found, the upgrade stops without overwriting them.',action:'Copy metadata'}))throw Error('Library upgrade cancelled');
+  const dest=await getMetaDir(true,r),collections=await dest.getDirectoryHandle(COLLECTIONS_FOLDER,{create:true});
+  // Preflight every source, including name collisions on case-insensitive filesystems.
+  const pending=[];
+  if(source){
+    for(const name of MIGRATION_FILES)if(await hasFile(source.data,name))pending.push({dir:source.data,target:dest,name});
+  }
+  const folders=[localAlbums];
+  if(source){folders.push(await maybeGetDir(source.data,'albums'));folders.push(await maybeGetDir(source.data,COLLECTIONS_FOLDER))}
+  for(const folder of folders)if(folder)for await(const [name,h] of folder.entries()){
+    if(h.kind==='file'&&name.endsWith('.txt'))pending.push({dir:folder,target:collections,name});
+  }
+  const planned=new Map();
+  for(const task of pending){
+    const body=await readText(task.dir,task.name),key=(task.target===dest?'data/':'collections/')+task.name.toLowerCase();
+    if(planned.has(key)&&planned.get(key)!==body)throw Error('Conflicting metadata sources: '+task.name);
+    planned.set(key,body);
+    if(await hasFile(task.target,task.name)&&migrationCopyDecision(body,await readText(task.target,task.name))==='conflict')throw Error('Conflicting existing metadata: '+task.name);
+  }
+  for(const task of pending)await copyMigrationText(task.dir,task.target,task.name);
+  await writeText(dest,MUSIC_MIGRATION_MARKER,JSON.stringify({version:1,source:source?.name||META_FOLDER,completed:new Date().toISOString()},null,2)+'\n');
+}
+/* END MUSIC DIRECTORY MIGRATION */
+
 function enqueueSave(label,job){pendingSaves++;setStatus('Saving changes…');const task=saveQueue.catch(()=>{}).then(job);saveQueue=task;task.then(()=>{pendingSaves--;setStatus(pendingSaves?'Saving changes…':'Saved ✓')},e=>{pendingSaves--;setStatus('Save error');toast('Could not save '+label+': '+e.message)});return task}
 function saveTrash(){const body=serializePaths(trash),r=root;return enqueueSave('in-gallery trash',async()=>writeText(await getMetaDir(true,r),TRASH_NAME,body))}
 function saveFavorites(){const body=serializePaths(favorites),r=root;return enqueueSave('favorites',async()=>writeText(await getMetaDir(true,r),'favorites.txt',body))}
 function saveTags(){const body=[...tags].filter(([,t])=>t.length).sort(([a],[b])=>a.localeCompare(b,'cs')).map(([p,t])=>p+'\t'+t.join(', ')).join('\n'),r=root;return enqueueSave('tags',async()=>writeText(await getMetaDir(true,r),'tags.tsv',body+(body?'\n':'')))}
-function saveAlbum(name){const members=albums.get(name)||new Set(),body=[...members].join('\n')+(members.size?'\n':''),r=root;return enqueueSave('album '+name,async()=>writeText(await (await getMetaDir(true,r)).getDirectoryHandle('albums',{create:true}),name+'.txt',body))}
+function saveAlbum(name){const members=albums.get(name)||new Set(),body=[...members].join('\n')+(members.size?'\n':''),r=root;return enqueueSave('album '+name,async()=>writeText(await (await getMetaDir(true,r)).getDirectoryHandle(COLLECTIONS_FOLDER,{create:true}),name+'.txt',body))}
 async function loadMetadata(){
   favorites=new Set();tags=new Map();albums=new Map();trash=new Set();
   const d=await getMetaDir(false);if(!d)return;
   favorites=new Set(lines(await readText(d,'favorites.txt')));
   trash=new Set(lines(await readText(d,TRASH_NAME)).filter(validPath));
   for(const row of (await readText(d,'tags.tsv')).split(/\r?\n/)){if(!row.trim()||row.startsWith('#'))continue;const pos=row.indexOf('\t');if(pos<1)continue;const path=row.slice(0,pos),vals=[...new Set(row.slice(pos+1).split(',').map(cleanTag).filter(Boolean))];if(vals.length)tags.set(path,vals)}
-  const ad=await maybeGetDir(d,'albums');if(ad)for await(const [name,h] of ad.entries())if(h.kind==='file'&&name.endsWith('.txt'))albums.set(name.slice(0,-4),new Set(lines(await(await h.getFile()).text())));
+  const ad=await maybeGetDir(d,COLLECTIONS_FOLDER);if(ad)for await(const [name,h] of ad.entries())if(h.kind==='file'&&name.endsWith('.txt'))albums.set(name.slice(0,-4),new Set(lines(await(await h.getFile()).text())));
 }
 function sortFiles(items){items.sort((a,b)=>b.path.localeCompare(a.path,'cs',{numeric:true}));return items}
 /* BEGIN AUDIO METADATA */
@@ -1953,6 +2013,63 @@ function sortMusicResults(items,field,direction=1,collectionOrder=null){
   });
 }
 /* END MUSIC FILTER LOGIC */
+/* BEGIN MUSIC CACHE LOGIC */
+const MUSIC_CACHE_VERSION=1;
+const MUSIC_CACHE_FILE='music-metadata.json';
+const MUSIC_CACHE_FIELDS=['title','artist','album','albumArtist','genre','year','track','disc'];
+function cleanMusicCacheMetadata(value){
+  const m={};if(!value||typeof value!=='object'||Array.isArray(value))return m;
+  for(const key of MUSIC_CACHE_FIELDS)if(typeof value[key]==='string'&&value[key].trim())m[key]=value[key].trim().slice(0,1024);
+  if(Number.isFinite(value.duration)&&value.duration>0)m.duration=value.duration;
+  return m;
+}
+function validMusicCacheStamp(entry,file){return !!entry&&Number.isSafeInteger(entry.size)&&entry.size===file.size&&Number.isFinite(entry.modified)&&entry.modified===file.lastModified}
+function parseMusicCache(raw,isPath){
+  const data=JSON.parse(raw);
+  if(!data||data.version!==MUSIC_CACHE_VERSION||!Array.isArray(data.entries))return new Map();
+  const result=new Map();
+  for(const row of data.entries){
+    if(!row||typeof row.path!=='string'||!isPath(row.path)||!Number.isSafeInteger(row.size)||row.size<0||!Number.isFinite(row.modified)||!row.metadata||typeof row.metadata!=='object'||Array.isArray(row.metadata))continue;
+    result.set(row.path,{size:row.size,modified:row.modified,metadata:cleanMusicCacheMetadata(row.metadata)});
+  }
+  return result;
+}
+function serializeMusicCache(entries){
+  return JSON.stringify({version:MUSIC_CACHE_VERSION,entries:[...entries].map(([path,e])=>({path,size:e.size,modified:e.modified,metadata:cleanMusicCacheMetadata(e.metadata)}))})+'\n';
+}
+/* END MUSIC CACHE LOGIC */
+
+let musicMetadataCache=new Map(),musicCacheTimer=null,musicCacheDirty=false,musicCacheHits=0,musicCacheRead=0;
+let musicCacheSession=0,librarySwitching=false;
+async function loadMusicCache(){
+  musicMetadataCache=new Map();musicCacheDirty=false;clearTimeout(musicCacheTimer);musicCacheTimer=null;
+  try{const raw=await readText(await getMetaDir(false),MUSIC_CACHE_FILE);if(raw)musicMetadataCache=parseMusicCache(raw,validPath)}catch(e){console.warn('Ignoring unreadable derived music cache',e)}
+}
+function scheduleMusicCacheSave(){
+  musicCacheDirty=true;if(musicCacheTimer||!root)return;
+  musicCacheTimer=setTimeout(()=>{musicCacheTimer=null;void flushMusicCache()},3000);
+}
+function flushMusicCache(){
+  clearTimeout(musicCacheTimer);musicCacheTimer=null;
+  if(!root||!musicCacheDirty)return Promise.resolve();
+  const r=root,session=musicCacheSession,body=serializeMusicCache(musicMetadataCache);musicCacheDirty=false;
+  // Cache is derived; a failed save must not block playback or personal metadata.
+  return enqueueSave('music metadata cache',()=>writeTextToRoot(r,MUSIC_CACHE_FILE,body)).catch(e=>{if(root===r&&musicCacheSession===session)musicCacheDirty=true;console.warn('Music cache save failed',e)});
+}
+function cacheMusicMetadata(path,file,metadata){
+  const entry={size:file.size,modified:file.lastModified,metadata:cleanMusicCacheMetadata(metadata)},old=musicMetadataCache.get(path);
+  if(validMusicCacheStamp(old,file)&&JSON.stringify(old.metadata)===JSON.stringify(entry.metadata))return;
+  musicMetadataCache.set(path,entry);scheduleMusicCacheSave();
+}
+function rememberPlaybackDuration(item,n){
+  const old=musicMetadataCache.get(item.path);if(!old||!item.musicStamp||old.size!==item.musicStamp.size||old.modified!==item.musicStamp.modified||old.metadata.duration===n)return;
+  old.metadata.duration=n;scheduleMusicCacheSave();
+}
+function pruneMusicCache(){
+  let changed=false;for(const p of musicMetadataCache.keys())if(!byPath.has(p)){musicMetadataCache.delete(p);changed=true}
+  if(changed)scheduleMusicCacheSave();
+}
+
 let musicIndexRun=0,musicSearchTimer=null;
 
 const musicFacetIds={artist:'musicArtist',album:'musicAlbum',genre:'musicGenre',year:'musicYear'};
@@ -1976,7 +2093,7 @@ function refreshMusicFacetOptions(base,facets){
   }
 }
 function updateMusicFilterStatus(){
-  el('musicIndexProgress').textContent=!root?'Open a music library':musicIndexing?'Reading metadata: '+musicIndexCompleted.toLocaleString()+' / '+musicIndexTotal.toLocaleString():musicIndexTotal.toLocaleString()+' tracks checked';
+  el('musicIndexProgress').textContent=!root?'Open a music library':musicIndexing?'Reading metadata: '+musicIndexCompleted.toLocaleString()+' / '+musicIndexTotal.toLocaleString():musicIndexTotal.toLocaleString()+' tracks checked · '+musicCacheHits.toLocaleString()+' cached · '+musicCacheRead.toLocaleString()+' parsed';
   const facets=readMusicFacets(),active=Object.values(facets).filter(Boolean).length;
   const filterCount=active+Number(!!el('query').value.trim())+Number(!!el('kind').value)+Number(!!el('folder').value);
   el('musicFilterSummary').textContent=active?'Metadata filters: '+active+' · combined with search, format, folder and collection filters using AND.':'';
@@ -2025,12 +2142,18 @@ function refreshMusicCaption(item){
 }
 function loadTrackMetadata(item,file){
   if(item.musicPromise)return item.musicPromise;
-  const activeRoot=root;
+  const activeRoot=root,session=musicCacheSession;
   item.musicPromise=(async()=>{
     try{if(root!==activeRoot||byPath.get(item.path)!==item)return {};
-      const source=file||await itemFile(item),m=await readAudioMetadata(source);
-      if(root!==activeRoot||byPath.get(item.path)!==item)return m;
-      item.music={...m,...(item.music?.duration?{duration:item.music.duration}:{})};item.musicReady=true;refreshMusicCaption(item);scheduleMusicFilterRefresh();
+      const source=file||await itemFile(item);
+      if(root!==activeRoot||session!==musicCacheSession||byPath.get(item.path)!==item)return {};
+      const cached=musicMetadataCache.get(item.path),hit=validMusicCacheStamp(cached,source);
+      const m=hit?{...cached.metadata}:await readAudioMetadata(source);
+      if(root!==activeRoot||session!==musicCacheSession||byPath.get(item.path)!==item)return m;
+      if(hit)musicCacheHits++;else musicCacheRead++;
+      item.musicStamp={size:source.size,modified:source.lastModified};
+      item.music={...m,...(item.music?.duration?{duration:item.music.duration}:{})};item.musicReady=true;
+      cacheMusicMetadata(item.path,source,item.music);refreshMusicCaption(item);scheduleMusicFilterRefresh();
       return item.music;
     }catch(_){if(root===activeRoot&&byPath.get(item.path)===item){item.musicReady=true;scheduleMusicFilterRefresh()}return item.music||{}}
   })();return item.musicPromise;
@@ -2038,7 +2161,7 @@ function loadTrackMetadata(item,file){
 function startMusicIndex(items){
   clearTimeout(musicSearchTimer);musicSearchTimer=null;
   const run=++musicIndexRun,activeRoot=root;let i=0;
-  musicIndexTotal=items.length;musicIndexCompleted=0;musicIndexing=!!items.length;updateMusicFilterStatus();
+  musicIndexTotal=items.length;musicIndexCompleted=0;musicCacheHits=musicCacheRead=0;musicIndexing=!!items.length;updateMusicFilterStatus();
   async function worker(){
     while(run===musicIndexRun&&root===activeRoot&&i<items.length){
       const item=items[i++];if(byPath.get(item.path)!==item)return;
@@ -2050,7 +2173,7 @@ function startMusicIndex(items){
   }
   void Promise.all([worker(),worker(),worker()]).then(()=>{
     if(run!==musicIndexRun||root!==activeRoot)return;
-    clearTimeout(musicSearchTimer);musicSearchTimer=null;musicIndexing=false;filterAndRender(true);
+    clearTimeout(musicSearchTimer);musicSearchTimer=null;musicIndexing=false;filterAndRender(true);void flushMusicCache();
   });
 }
 
@@ -2208,7 +2331,7 @@ function initMusicPlayer(){
   playerAudio.addEventListener('volumechange',applyPlayerVolume);
   for(const event of ['play','pause','ended','loadedmetadata','durationchange','emptied','error'])playerAudio.addEventListener(event,()=>{updatePlayerControls();updatePlayerTime()});
   playerAudio.addEventListener('timeupdate',()=>{updatePlayerTime();el('playerPrev').disabled=!playerPath||(!nextPlayerPath(-1)&&playerAudio.currentTime<3)});
-  playerAudio.addEventListener('loadedmetadata',()=>{const item=byPath.get(playerPath),n=playerAudio.duration;if(item&&Number.isFinite(n)&&n>0){item.music={...item.music,duration:n};refreshMusicCaption(item);scheduleMusicFilterRefresh()}});
+  playerAudio.addEventListener('loadedmetadata',()=>{const item=byPath.get(playerPath),n=playerAudio.duration;if(item&&Number.isFinite(n)&&n>0){item.music={...item.music,duration:n};rememberPlaybackDuration(item,n);refreshMusicCaption(item);scheduleMusicFilterRefresh()}});
   playerAudio.addEventListener('playing',recordListening);
   playerAudio.addEventListener('ended',()=>{if(playerRepeat==='one'&&playerEligible(playerPath)){playerAudio.currentTime=0;void resumePlayer();return}const next=nextPlayerPath(1);if(next===playerPath&&next){playerAudio.currentTime=0;void resumePlayer()}else if(next)void startTrack(next,false)});
   playerAudio.addEventListener('error',()=>{if(playerPath&&playerURL)toast('This browser cannot play this audio format or codec. The original file is unchanged.')});
@@ -2420,7 +2543,7 @@ function initMusicCollections(){
 
 function buildItem(path,handle=null){return {path,name:path.split('/').at(-1),kind:typeOf(path),handle}}
 function installItems(items,origin){
-  images=sortFiles(items);byPath=new Map(images.map(x=>[x.path,x]));
+  images=sortFiles(items);byPath=new Map(images.map(x=>[x.path,x]));pruneMusicCache();
   // Index stores only media files. Derive ALL parent directories from their paths,
   // so e.g. 2025/Rodina appears even if it contains no media directly.
   const folders=new Set();
@@ -2449,7 +2572,7 @@ async function collect(dir,prefix,scanId,out){
   for await(const [name,handle] of dir.entries()){
     if(scanId!==scanNo)return;
     if(handle.kind==='directory'){
-      if(!prefix&&[META_FOLDER,LEGACY_META_FOLDER].includes(name))continue;
+      if(!prefix&&RESERVED_META_FOLDERS.includes(name))continue;
       await collect(handle,prefix+name+'/',scanId,out);
     } else if(typeOf(name)){const path=prefix+name;out.push(buildItem(path,handle));
       if(out.length%400===0){setStatus('Scanning: '+out.length.toLocaleString('cs-CZ')+' files…');await new Promise(r=>setTimeout(r,0))}
@@ -2462,6 +2585,7 @@ async function scan(manual=false){
   if(manual&&!await galleryCollectionDialog({title:'Rebuild index?',message:'Rescan every folder to discover added, renamed or moved files. After a successful scan, stale metadata references and orphaned previews may be removed permanently. Make sure all drives and folders are available before continuing.',action:'Rebuild index'}))return;
   clearSelection();scanInProgress=true;clearTimeout(fileInfoTimer);el('rescan').disabled=true;el('rebuildThumbs').disabled=true;
   const scanId=++scanNo,scanRoot=root,collected=[];
+  ++musicIndexRun;musicIndexing=false;clearTimeout(musicSearchTimer);musicSearchTimer=null;
   const priorPaths=new Set(images.map(x=>x.path)),previous=new Map(fileInfo);
   setStatus('Scanning all subfolders…');
   try{
@@ -2479,7 +2603,7 @@ async function scan(manual=false){
     if(approved.length){moved=await migrateMoves(approved,next)}
     if(scanId!==scanNo)return;
     clearThumbs();dirCache=new Map([['',scanRoot]]);
-    installItems(collected,'fresh scan');
+    fileInfo=next;installItems(collected,'fresh scan');pruneMusicCache();
     const txt=INDEX_HEADER+'\n# Generated: '+new Date().toISOString()+'\n'+serializePaths(new Set(collected.map(x=>x.path)));
     // The old file inventory is not discarded until the matching/review step finishes.
     await enqueueSave('index',async()=>writeText(await getMetaDir(true,scanRoot),INDEX_NAME,txt));
@@ -2495,20 +2619,20 @@ async function scan(manual=false){
     if(!previous.size)toast('Initial file information saved. Future index refreshes can detect moves.');
     else if(moved)toast(`Transferred metadata for ${moved} files. No backup created.`);
     else if(suspicious)console.warn('Automatic cleanup was skipped after an unexpectedly large library change.');
-    setStatus(`${images.length.toLocaleString('cs-CZ')} files · v7 index saved ✓`);
+    setStatus(`${images.length.toLocaleString('cs-CZ')} files · music index saved ✓`);
   }catch(e){setStatus('Indexing error');toast('Could not refresh index: '+e.message);console.error(e)}
   finally{scanInProgress=false;if(scanId===scanNo){el('rescan').disabled=false;el('rebuildThumbs').disabled=false}}
 }
 
 async function itemFile(item){
   if(item.handle)return item.handle.getFile();
-  const parts=item.path.split('/');let d=root,key='';
+  const parts=item.path.split('/'),activeRoot=root,cache=dirCache;let d=activeRoot,key='';
   for(const part of parts.slice(0,-1)){
     key=key?key+'/'+part:part;
-    if(dirCache.has(key))d=dirCache.get(key);
-    else{d=await d.getDirectoryHandle(part);dirCache.set(key,d)}
+    if(cache.has(key))d=cache.get(key);
+    else{d=await d.getDirectoryHandle(part);if(root!==activeRoot)throw Error('Library changed');cache.set(key,d)}
   }
-  item.handle=await d.getFileHandle(parts.at(-1));
+  const handle=await d.getFileHandle(parts.at(-1));if(root!==activeRoot)throw Error('Library changed');item.handle=handle;
   return item.handle.getFile();
 }
 function releaseViewerMedia(){
@@ -2597,17 +2721,21 @@ async function forgetLibraries(){
   }catch(e){toast('Could not remove library shortcut: '+e.message)}
 }
 async function activateLibrary(picked){
-  if(thumbResetting||deletingMedia)throw Error('Wait for the current gallery maintenance operation to finish.');
-  await flushThumbManifest();await saveQueue.catch(()=>{});
+  if(thumbResetting||deletingMedia||scanInProgress||librarySwitching)throw Error('Wait for the current music library operation to finish.');
+  librarySwitching=true;
+  try{
+  await prepareMusicLayout(picked);
+  ++musicCacheSession;++musicIndexRun;await flushMusicCache();await flushThumbManifest();await saveQueue.catch(()=>{});
   scanNo++;clearTimeout(fileInfoTimer);if(el('viewer').open)closeViewer();stopMusic();playerRepeat='off';queueChanged();clearThumbs();
   clearSelection();lastUndo=null;root=picked;configuredRootPath='';dirCache=new Map([['',picked]]);images=[];byPath.clear();
   el('libraryName').textContent=picked.name;el('libraryName').title=picked.name;activeView={type:'all'};visibleCount=80;
   el('folder').value='';el('kind').value='';el('query').value='';resetMusicFacets();
   ++musicIndexRun;clearTimeout(musicSearchTimer);musicSearchTimer=null;musicIndexCompleted=musicIndexTotal=0;musicIndexing=false;refreshMusicFacetOptions([],readMusicFacets());updateMusicFilterStatus();setStatus('Loading metadata…');
-  await loadMetadata();await loadMusicCollections();await loadFullPathConfig();await autoConfigureFullPath();await loadThumbManifest();await loadFileInfo();
+  await loadMetadata();await loadMusicCollections();await loadFullPathConfig();await autoConfigureFullPath();await loadThumbManifest();await loadFileInfo();await loadMusicCache();
   if(!await loadIndex())await scan();
   else if(!fileInfo.size)updateMaintenance();
   updateMaintenance();
+  }finally{librarySwitching=false}
 }
 async function openRemembered(entry,allowPrompt=true){
   if(!entry?.handle)return;
@@ -3173,8 +3301,9 @@ function libraryPathFromHtml(handle){
   if(location.protocol!=='file:'||!handle||expectedLibraryName()?.toLocaleLowerCase()!==handle.name.toLocaleLowerCase())return null;
   try{
     let pathname=decodeURIComponent(location.pathname).replace(/\\/g,'/');
-    if(!pathname.endsWith('/__gallery/index.html'))return null;
-    pathname=pathname.slice(0,-'/__gallery/index.html'.length);
+    const suffix=RESERVED_META_FOLDERS.map(folder=>'/'+folder+'/index.html').find(s=>pathname.endsWith(s));
+    if(!suffix)return null;
+    pathname=pathname.slice(0,-suffix.length);
     if(/^\/[a-zA-Z]:\//.test(pathname))pathname=pathname.slice(1).replace(/\//g,'\\');
     return normalizeRootPath(pathname);
   }catch(_){return null}
@@ -3212,7 +3341,7 @@ async function configureFullPath(){
     'Windows: D:\\Pictures\n'+
     'macOS: /Users/you/Pictures\n'+
     'Linux: /home/you/Pictures\n\n'+
-    'Only used for copying paths. Saved in __gallery/data/path-config.json.',
+    'Only used for copying paths. Saved in __music/data/path-config.json.',
     input:true,value:configuredRootPath,maxLength:2048,inputLabel:'Absolute library path',action:'Save path'
   });
   if(answer===null)return false;
@@ -3231,7 +3360,7 @@ async function configureFullPath(){
     await enqueueSave('library path',()=>writeTextToRoot(selectedRoot,FULL_PATH_CONFIG_NAME,JSON.stringify(config,null,2)+'\n'));
     if(root!==selectedRoot)return false;
     configuredRootPath=normalized;
-    toast('Library path saved in __gallery/data/path-config.json.');
+    toast('Library path saved in __music/data/path-config.json.');
     return true;
   }catch(e){toast('Could not save the library path: '+e.message);return false}
 }
@@ -3521,7 +3650,7 @@ async function undoLastEdit(){
     for(const name of changedAlbums){
       if(albums.has(name))await saveAlbum(name);
       else await enqueueSave('remove new album',async()=>{
-        const parent=await getMetaDir(false),directory=await maybeGetDir(parent,'albums');
+        const parent=await getMetaDir(false),directory=await maybeGetDir(parent,COLLECTIONS_FOLDER);
         if(directory){try{await directory.removeEntry(name+'.txt')}catch(e){if(e.name!=='NotFoundError')throw e}}
       });
     }
@@ -3594,7 +3723,7 @@ async function loadMetadata(){
   trash=new Set(lines(await readText(d,TRASH_NAME)).filter(validPath));
   for(const name of lines(await readText(d,TAG_CATALOG_NAME))) tagCatalog.add(cleanTag(name));
   for(const row of (await readText(d,'tags.tsv')).split(/\r?\n/)){if(!row.trim()||row.startsWith('#'))continue;const pos=row.indexOf('\t');if(pos<1)continue;const path=row.slice(0,pos),vals=[...new Set(row.slice(pos+1).split(',').map(cleanTag).filter(Boolean))];if(vals.length){ tags.set(path,vals); vals.forEach(v=>tagCatalog.add(v)); }}
-  const ad=await maybeGetDir(d,'albums'); if(ad) for await (const [name,h] of ad.entries()) if(h.kind==='file'&&name.endsWith('.txt')){ const album=name.slice(0,-4); albums.set(album,new Set(lines(await (await h.getFile()).text()).filter(validPath))); }
+  const ad=await maybeGetDir(d,COLLECTIONS_FOLDER); if(ad) for await (const [name,h] of ad.entries()) if(h.kind==='file'&&name.endsWith('.txt')){ const album=name.slice(0,-4); albums.set(album,new Set(lines(await (await h.getFile()).text()).filter(validPath))); }
 }
 function renderTagList(){
   const list=el('tagList'),search=el('collectionQuery').value.trim().toLocaleLowerCase('cs');
@@ -3604,7 +3733,7 @@ function renderTagList(){
   for(const tag of matches.slice(0,500)){
     const chip=document.createElement('button');chip.className='tag-chip'+(selectedTagKeys.has(tag.key)?' active':'');
     chip.dataset.tag=tag.key;chip.setAttribute('aria-pressed',String(selectedTagKeys.has(tag.key)));
-    chip.title=`${tag.label} — ${tag.count} visible item(s). Toggle filter, or use the hover icon to assign/remove on selected photos.`;
+    chip.title=`${tag.label} — ${tag.count} visible item(s). Toggle filter, or use the hover icon to assign/remove on selected tracks.`;
     const label=document.createElement('span');label.textContent='#'+tag.label;
     const count=document.createElement('span');count.className='tag-count';count.textContent=tag.count.toLocaleString('en-US');
     const action=document.createElement('span');action.className='chip-action-label';action.textContent='＋';action.title='Mark tag';
@@ -3644,7 +3773,7 @@ function switchCollections(mode){ collectionMode=mode==='tags'?'tags':'albums'; 
 async function addCollection(){
   if(!root)return;
   if(collectionMode==='albums'){await newAlbum();return}
-  const answer=await galleryCollectionDialog({title:'New tag',message:'Create a reusable tag name. You can assign it to photos later.',input:true,action:'Create tag'});
+  const answer=await galleryCollectionDialog({title:'New tag',message:'Create a reusable tag name. You can assign it to tracks later.',input:true,action:'Create tag'});
   if(answer===null)return;
   const name=cleanTag(answer);
   if(!validNewTag(name)){toast('Tag name must contain 1–80 characters.');return}
@@ -3720,7 +3849,7 @@ function renderViewerCollections(){
       const has=!!currentPath&&paths.has(currentPath);
       const btn=document.createElement('div');btn.tabIndex=0;btn.setAttribute('role','group');
       btn.className='nav-btn album-row viewer-membership-row'+(has?' has-membership':'');
-      btn.title='Select collection “'+name+'” for the Remove action. Use the green + / − icon to change this photo’s membership.';
+      btn.title='Select collection “'+name+'” for the Remove action. Use the green + / − icon to change this track’s membership.';
       const caption=document.createElement('span');caption.className='album-title';caption.textContent='▤ '+name;caption.title=name;
       const count=document.createElement('span');count.className='tag-count';count.textContent=visibleAlbumCount(paths).toLocaleString('en-US');
       const mark=document.createElement('button');mark.type='button';mark.className='viewer-list-action';mark.textContent=has?'−':'+';mark.setAttribute('aria-pressed',String(has));mark.setAttribute('aria-label',(has?'Remove this track from collection ':'Add this track to collection ')+name);mark.title=mark.getAttribute('aria-label');
@@ -3746,10 +3875,10 @@ function renderViewerCollections(){
       const has=!!currentPath&&(tags.get(currentPath)||[]).some(t=>t.toLocaleLowerCase('cs')===tag.key);
       const btn=document.createElement('div');btn.tabIndex=0;btn.setAttribute('role','group');
       btn.className='tag-chip viewer-membership-row'+(has?' has-membership':'');
-      btn.title='Select tag “'+tag.label+'” for the Remove action. Use the green + / − icon to change this photo’s membership.';
+      btn.title='Select tag “'+tag.label+'” for the Remove action. Use the green + / − icon to change this track’s membership.';
       const label=document.createElement('span');label.textContent='#'+tag.label;label.title=tag.label;
       const count=document.createElement('span');count.className='tag-count';count.textContent=tag.count.toLocaleString('en-US');
-      const mark=document.createElement('button');mark.type='button';mark.className='viewer-list-action';mark.textContent=has?'−':'+';mark.setAttribute('aria-pressed',String(has));mark.setAttribute('aria-label',(has?'Remove tag from this photo: ':'Add tag to this photo: ')+tag.label);mark.title=mark.getAttribute('aria-label');
+      const mark=document.createElement('button');mark.type='button';mark.className='viewer-list-action';mark.textContent=has?'−':'+';mark.setAttribute('aria-pressed',String(has));mark.setAttribute('aria-label',(has?'Remove tag from this track: ':'Add tag to this track: ')+tag.label);mark.title=mark.getAttribute('aria-label');
       btn.append(label,count,mark);
       const selectTag=()=>{
         viewerCollectionSelection=tag.label;el('viewerRemoveCollection').disabled=false;
@@ -3819,7 +3948,7 @@ const HELP={
   rebuildThumbs:'Confirm removal of generated thumbnails only. Originals and personal metadata are unchanged.',
   themeSelect:'Follow your system theme or force the Light and Dark schemes shown in the screenshots.',
   navAll:'Display every indexed audio track except items in Trash.',
-  navFav:'Show favorites from __gallery/data/favorites.txt across all folders.',
+  navFav:'Show favorites from __music/data/favorites.txt across all folders.',
   navTrash:'Show hidden media. Original files remain on disk until permanently deleted.',
   showAlbums:'Display albums. OFF allows one filter; OR / AND combine albums, tags, Favorites and Trash.',
   showTags:'Display tags. Combine selected tags with albums, Favorites and Trash using OR or AND.',
@@ -4157,7 +4286,7 @@ syncGalleryHeaderHeight();
 if(window.ResizeObserver)new ResizeObserver(syncGalleryHeaderHeight).observe(galleryTopbar);
 else window.addEventListener('resize',syncGalleryHeaderHeight);
 
-window.addEventListener('pagehide',()=>{if(thumbDirty)void flushThumbManifest();stopMusic()});
+window.addEventListener('pagehide',()=>{if(thumbDirty)void flushThumbManifest();if(musicCacheDirty)void flushMusicCache();stopMusic()});
 </script>
 </body>
 </html>
