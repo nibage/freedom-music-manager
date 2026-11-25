@@ -1964,14 +1964,14 @@ function refreshMusicFacetOptions(base,facets){
   const maps=buildMusicFacets(base,facets);
   for(const field of MUSIC_FACETS){
     const select=el(musicFacetIds[field]),old=facets[field],values=maps[field],options=[new Option(musicFacetDefaults[field],'')];
-    const entries=[...values].sort(([ka,a],[kb,b])=>ka==='missing'?1:kb==='missing'?-1:musicCollator.compare(a.label,b.label));
+    const entries=[...values].sort(([ka,a],[kb,b])=>ka===kb?0:ka==='missing'?1:kb==='missing'?-1:musicCollator.compare(a.label,b.label));
     for(const [key,entry] of entries)options.push(new Option(entry.label+' ('+entry.count+')',key));
     if(old&&!values.has(old)){
       const oldLabel=select.selectedOptions[0]?.textContent.replace(/ \(\d+\)$/,'')||old.replace(/^v:/,'');
       options.push(new Option(oldLabel+' (0)',old));
     }
     const signature=options.map(o=>o.value+'\u0001'+o.text).join('\u0002');
-    if(select.dataset.signature!==signature){select.replaceChildren(...options);select.dataset.signature=signature}
+    if(select.dataset.signature!==signature){const fragment=document.createDocumentFragment();for(const option of options)fragment.append(option);select.replaceChildren(fragment);select.dataset.signature=signature}
     select.value=old;
   }
 }
@@ -1988,7 +1988,7 @@ function updateMusicFilterStatus(){
 }
 function scheduleMusicFilterRefresh(){
   if(musicSearchTimer)return;const activeRoot=root,run=musicIndexRun;
-  musicSearchTimer=setTimeout(()=>{musicSearchTimer=null;if(root===activeRoot&&run===musicIndexRun)filterAndRender()},500);
+  musicSearchTimer=setTimeout(()=>{musicSearchTimer=null;if(root===activeRoot&&run===musicIndexRun)filterAndRender(true)},images.length>10000?1500:600);
 }
 function resetMusicFacets(){
   for(const id of [...Object.values(musicFacetIds),'musicLength'])el(id).value='';
@@ -2050,7 +2050,7 @@ function startMusicIndex(items){
   }
   void Promise.all([worker(),worker(),worker()]).then(()=>{
     if(run!==musicIndexRun||root!==activeRoot)return;
-    clearTimeout(musicSearchTimer);musicSearchTimer=null;musicIndexing=false;filterAndRender();
+    clearTimeout(musicSearchTimer);musicSearchTimer=null;musicIndexing=false;filterAndRender(true);
   });
 }
 
@@ -2603,7 +2603,7 @@ async function activateLibrary(picked){
   clearSelection();lastUndo=null;root=picked;configuredRootPath='';dirCache=new Map([['',picked]]);images=[];byPath.clear();
   el('libraryName').textContent=picked.name;el('libraryName').title=picked.name;activeView={type:'all'};visibleCount=80;
   el('folder').value='';el('kind').value='';el('query').value='';resetMusicFacets();
-  ++musicIndexRun;clearTimeout(musicSearchTimer);musicSearchTimer=null;musicIndexCompleted=musicIndexTotal=0;musicIndexing=false;updateMusicFilterStatus();setStatus('Loading metadata…');
+  ++musicIndexRun;clearTimeout(musicSearchTimer);musicSearchTimer=null;musicIndexCompleted=musicIndexTotal=0;musicIndexing=false;refreshMusicFacetOptions([],readMusicFacets());updateMusicFilterStatus();setStatus('Loading metadata…');
   await loadMetadata();await loadMusicCollections();await loadFullPathConfig();await autoConfigureFullPath();await loadThumbManifest();await loadFileInfo();
   if(!await loadIndex())await scan();
   else if(!fileInfo.size)updateMaintenance();
@@ -2742,7 +2742,8 @@ async function removeCollection(){
 }
 
 function renderAlbumSelector(){const s=el('albumSelect'),old=s.value;s.replaceChildren(new Option('Choose album',''));for(const name of [...albums.keys()].sort((a,b)=>a.localeCompare(b,'cs')))s.add(new Option(name,name));if(albums.has(old))s.value=old;updateAlbumButton()}
-function filterAndRender(){
+function filterAndRender(metadataRefresh=false){
+  const previous=filtered;
   const q=el('query').value.trim(),folder=el('folder').value,kind=el('kind').value,facets=readMusicFacets();
   const albumSets=[...selectedAlbumNames].filter(name=>albums.has(name)).map(name=>albums.get(name));
   const tagKeys=[...selectedTagKeys],specials=[...selectedSpecialViews];
@@ -2772,7 +2773,10 @@ function filterAndRender(){
   filtered=base.filter(item=>matchesMusicFacets(item,facets));
   const order=albumSets.length===1&&tagKeys.length===0&&specials.length===0?albumSets[0]:null;
   sortMusicResults(filtered,el('musicSort').value,musicSortDirection,order);
-  navButtonActive();renderCards();updateMusicFilterStatus();
+  navButtonActive();
+  if(!metadataRefresh||previous.length!==filtered.length||previous.some((item,i)=>item!==filtered[i]))renderCards();
+  else updateResultsLine();
+  updateMusicFilterStatus();
 }
 function renderCards(){
   if(observer)observer.disconnect();const host=el('gallery');host.replaceChildren();musicCardsByPath.clear();
