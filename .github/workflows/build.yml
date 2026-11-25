@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION=v1.0.0-rc.1
+          VERSION=v1.0.0-rc.2
           if [[ "$GITHUB_REF_TYPE" == tag ]]; then VERSION="$GITHUB_REF_NAME"; fi
           python3 scripts/build_music_release.py "$VERSION"
           cd dist
