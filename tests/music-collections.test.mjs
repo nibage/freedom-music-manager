@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-const html=await readFile(new URL('../__gallery/index.html',import.meta.url),'utf8');
+const html=await readFile(new URL('../__music/index.html',import.meta.url),'utf8');
 const block=html.match(/\/\* BEGIN MUSIC PLAYER LOGIC \*\/([\s\S]*?)\/\* END MUSIC PLAYER LOGIC \*\//)[1];
 const q=new Function(block+'\nreturn {nextQueueTrack,queueInsert,shuffleUpcoming,restoreUpcoming,moveQueueEntry,remapMusicPaths};')();
 const all=()=>true,eligible=p=>p!=='b';
@@ -34,7 +34,7 @@ const parser=html.slice(html.indexOf('function validPlaylistName('),html.indexOf
 const ext=html.match(/const AUDIO_EXT = [^\n]+/)[0];
 const type=html.match(/function typeOf\(path\)\{[^\n]+\}/)[0];
 const valid=html.match(/function validPath\(path\)\{[^\n]+\}/)[0];
-const parse=new Function(ext+'\n'+type+'\n'+valid+"\nconst META_FOLDER='__gallery',LEGACY_META_FOLDER='_gallery',MUSIC_HISTORY_LIMIT=200;\n"+parser+'\nreturn parseMusicCollections;')();
+const parse=new Function(ext+'\n'+type+'\n'+valid+"\nconst RESERVED_META_FOLDERS=['__music','__gallery','_gallery'],MUSIC_HISTORY_LIMIT=200;\n"+parser+'\nreturn parseMusicCollections;')();
 test('playlist order persists and history is bounded',()=>{
   const data=parse(JSON.stringify({version:1,playlists:[{name:'Night drive',paths:['x.flac','y.mp3','x.flac']}],history:Array.from({length:250},(_,i)=>({path:'x.flac',at:i}))}));
   assert.deepEqual(data.playlists.get('Night drive'),['x.flac','y.mp3']);
