@@ -1312,6 +1312,7 @@ function albumMembers(path){return [...albums].filter(([,xs])=>xs.has(path)).map
 function clearThumbs(){
   for(const u of thumbs.values())URL.revokeObjectURL(u);
   thumbs.clear();pendingThumbs.clear();
+  const playerCover=el('playerCover');if(playerCover){playerCover.dataset.path='';playerCover.src=DEFAULT_COVER;}
   // Resolve jobs that have not yet started, so no caller waits indefinitely.
   for(const job of thumbJobs.splice(0))job.resolve(null);
 }
@@ -1901,9 +1902,10 @@ function stopMusic(clear=true){
   updatePlayerTrack();updatePlayerTime();
 }
 async function resumePlayer(){
+  const request=playerRequest;
   try{await playerAudio.play()}catch(e){
-    if(e.name!=='AbortError')toast('Playback could not start. Press Play again or try another format.');
-  }updatePlayerControls();
+    if(request===playerRequest&&e.name!=='AbortError')toast('Playback could not start. Press Play again or try another format.');
+  }if(request===playerRequest)updatePlayerControls();
 }
 async function startTrack(path,newQueue=true){
   if(!playerEligible(path)||deletingMedia)return;
@@ -1921,7 +1923,8 @@ async function startTrack(path,newQueue=true){
   updatePlayerTrack();updatePlayerTime();
   try{
     const file=await itemFile(item);
-    if(req!==playerRequest||root!==activeRoot||!playerEligible(path))return;
+    if(req!==playerRequest||root!==activeRoot)return;
+    if(!playerEligible(path)){stopMusic();return}
     playerURL=URL.createObjectURL(file);
     playerAudio.src=playerURL;playerAudio.load();playerLoading=false;
     void loadTrackMetadata(item,file);
@@ -1944,7 +1947,8 @@ function stepMusic(step){
 }
 function reconcileMusicPlayer(){
   if(playerPath&&!playerEligible(playerPath)){stopMusic();return}
-  updatePlayerControls();
+  if(playerPath&&el('playerCover').dataset.path!==playerPath)updatePlayerTrack();
+  else updatePlayerControls();
 }
 function applyPlayerVolume(){
   const v=playerAudio.volume,muted=playerAudio.muted;
