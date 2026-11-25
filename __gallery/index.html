@@ -1733,6 +1733,7 @@ async function readAudioMetadata(file,art=false){
 /* END AUDIO METADATA */
 
 let musicIndexRun=0,musicSearchTimer=null;
+const musicCardsByPath=new Map();
 function musicTitle(item){return item.music?.title||item.name.replace(/\.[^.]+$/,'')}
 function musicDuration(n){if(!Number.isFinite(n))return '';const s=Math.round(n);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
 function musicDetailLines(item){
@@ -1747,14 +1748,15 @@ function updateMusicCaption(card,item){
   for(let i=0;i<values.length;i++){const row=meta.querySelector('.music-line-'+i);if(row)row.textContent=values[i]}
 }
 function refreshMusicCaption(item){
-  for(const card of el('gallery').querySelectorAll('.photo'))if(card.dataset.path===item.path)updateMusicCaption(card,item);
+  const card=musicCardsByPath.get(item.path);if(card?.isConnected)updateMusicCaption(card,item);
   if(currentPath===item.path){el('fileLabel').textContent=musicTitle(item);el('musicViewerMetadata').textContent=musicDetailLines(item).slice(0,2).join('\n')}
 }
 function loadTrackMetadata(item,file){
   if(item.musicPromise)return item.musicPromise;
   const activeRoot=root;
   item.musicPromise=(async()=>{
-    try{const source=file||await itemFile(item),m=await readAudioMetadata(source);
+    try{if(root!==activeRoot||byPath.get(item.path)!==item)return {};
+      const source=file||await itemFile(item),m=await readAudioMetadata(source);
       if(root!==activeRoot||byPath.get(item.path)!==item)return m;
       item.music={...m,...(item.music?.duration?{duration:item.music.duration}:{})};refreshMusicCaption(item);
       if(el('query').value.trim()&&!musicSearchTimer)musicSearchTimer=setTimeout(()=>{musicSearchTimer=null;if(root===activeRoot)filterAndRender()},300);
@@ -2129,7 +2131,7 @@ function filterAndRender(){
   navButtonActive();renderCards();
 }
 function renderCards(){
-  if(observer)observer.disconnect();const host=el('gallery');host.replaceChildren();
+  if(observer)observer.disconnect();const host=el('gallery');host.replaceChildren();musicCardsByPath.clear();
   const slice=filtered.slice(0,visibleCount);
   if(!observer)observer=new IntersectionObserver(entries=>{for(const e of entries)if(e.isIntersecting){
     observer.unobserve(e.target);const p=e.target.dataset.path;if(p&&byPath.has(p))queueThumb(p,e.target);
@@ -2158,7 +2160,7 @@ function renderCards(){
     };
     meta.onclick=selectFromCaption;
     meta.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){selectFromCaption(e)}};
-    card.append(media,heart,meta);updateMusicCaption(card,item);host.append(card);observer.observe(thumbnail);
+    card.append(media,heart,meta);updateMusicCaption(card,item);host.append(card);musicCardsByPath.set(item.path,card);observer.observe(thumbnail);
   }
   el('results').textContent=(activeView.type==='trash'?'Trash · ':(activeView.type==='tags'?'Tags '+selectedTagKeys.size+' · ':''))+filtered.length.toLocaleString('cs-CZ')+' results · showing '+slice.length.toLocaleString('cs-CZ')+' / '+images.length.toLocaleString('cs-CZ')+' files';
   // Always show the action in Trash, even if the search currently filters its cards.
@@ -2364,7 +2366,7 @@ function drawThumb(canvas,source){
 async function imageThumbBlob(file){
   // SVG demo images need a DOM image decode fallback: createImageBitmap does not
   // consistently support SVG File objects in all Chromium environments.
-  if(/\.svg$/i.test(file.name)){
+  if(/\.svg$/i.test(file.name||'')){
     const source=new Image(),svgText=await file.text();
     source.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svgText);
     await source.decode();
