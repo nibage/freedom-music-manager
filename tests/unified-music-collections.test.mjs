@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-const html=await readFile(new URL('../__gallery/index.html',import.meta.url),'utf8');
+const html=await readFile(new URL('../__music/index.html',import.meta.url),'utf8');
 const valid=html.match(/function validAlbum\(name\)\{[^\n]+\}/)[0];
 const helpers=html.slice(html.indexOf('function sameMusicOrder('),html.indexOf('async function loadMusicCollections('));
 const {sameMusicOrder,collectionNameForImport}=new Function(valid+'\n'+helpers+'\nreturn {sameMusicOrder,collectionNameForImport};')();
