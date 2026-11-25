@@ -32,6 +32,10 @@ The demo ZIP contains nine synthetic tracks in WAV, MP3, FLAC, Ogg Vorbis, M4A a
 - Reversible in-app Trash; permanent deletion requires explicit confirmation and does not use the operating system's Recycle Bin.
 - Local listening history (up to 200 entries), metadata cache validated against file size and modification time, lazy cover previews, themes, and one-step undo for supported collection/tag/favorite edits.
 
+## How filters combine
+
+The sidebar OFF / OR / AND button affects only selected Music Collections, custom tags, Favorites and Trash. OFF selects one criterion; OR matches any selected criterion; AND matches every selected criterion. Artist, actual Album, Genre, Year, Duration, search and Format always narrow the resulting tracks using AND. A locked folder always narrows results; an unlocked folder is ignored while any sidebar criterion is selected. Reset filters clears metadata, search, format and folder, not the sidebar selection or sort order. Metadata options include counts within the current scope.
+
 ## Formats
 
 MP3, FLAC, WAV, Ogg Vorbis/Opus and M4A/ALAC containers have built-in metadata readers. AAC, AIFF/AIF, WMA and raw ALAC extensions are indexed but tag parsing is not implemented for every variant. Playback depends on the browser and codec; recognition of a filename is not a guarantee of decoding. Metadata may be incomplete for damaged files, unusual tags and CBR MP3 without duration headers. Audio tags are read, not rewritten.
@@ -50,7 +54,7 @@ node --test tests/music-*.test.mjs tests/unified-music-collections.test.mjs
 npm install --no-save --no-package-lock playwright@1.56.1
 npx playwright install chromium
 node scripts/capture-screenshots.mjs
-python3 scripts/build_music_release.py v1.0.0-rc.1
+python3 scripts/build_music_release.py v1.0.0-rc.3
 ```
 
 FFmpeg is needed to generate all six demo formats; otherwise the generator falls back to WAV. CI requires all six. The browser test uses real synthetic audio bytes and mock filesystem handles, not personal files. Native folder-picker permissions still require manual testing in Chrome/Edge. Release candidate status is retained until CI and manual checks are confirmed.

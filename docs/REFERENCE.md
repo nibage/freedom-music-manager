@@ -30,7 +30,7 @@ The earlier experimental `music-collections.json` is imported into the unified c
 
 A single audio element is independent of the details dialog. Clicking a cover snapshots matching tracks into the queue. Changing filters does not replace that queue. Explicit queue editing deduplicates paths. Shuffle randomizes the unplayed suffix; manual edits take precedence. Repeat one repeats at natural end, manual next ignores it; repeat all wraps. Live queue and play position are session-local. Collections persist ordered paths.
 
-Artist, album, genre and year are read from supported embedded tags; missing tags are distinguished from pending reads. Metadata filters combine using AND; custom collection/tag predicates use their selected OFF/OR/AND setting. Duration buckets are <120, 120–299.999 and >=300 seconds. Metadata extraction is bounded, so large or unusual tag blocks may be incomplete. Native playback determines codec support.
+Artist, album, genre and year are read from supported embedded tags; missing tags are distinguished from pending reads. Metadata filters combine using AND; custom collection/tag/Favorites/Trash predicates use their selected OFF/OR/AND setting. The selected metadata facets, search, format and applicable folder must all match that sidebar result. Folder Lock keeps the folder restriction when choosing sidebar criteria; if unlocked, a selected sidebar criterion searches across the library. Reset filters clears metadata/search/format/folder, but leaves sidebar criteria and sort order unchanged. Duration buckets are <120, 120–299.999 and >=300 seconds. Metadata extraction is bounded, so large or unusual tag blocks may be incomplete. Native playback determines codec support.
 
 ## Safety
 

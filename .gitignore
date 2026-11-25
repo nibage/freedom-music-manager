@@ -6,9 +6,6 @@
 !__music/
 __music/*
 !__music/index.html
-!__gallery/
-__gallery/*
-!__gallery/index.html
 !docs/
 !docs/REFERENCE.md
 !docs/screenshots/

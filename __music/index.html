@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Freedom Music Manager 1.0.0 RC 2</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%0A%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2215%22%20fill%3D%22%231b1e24%22%2F%3E%0A%3Crect%20x%3D%2210%22%20y%3D%2218%22%20width%3D%2237%22%20height%3D%2232%22%20rx%3D%225%22%20fill%3D%22%2330353d%22%20stroke%3D%22%23f6a622%22%20stroke-width%3D%223%22%20opacity%3D%220.83%22%2F%3E%0A%3Crect%20x%3D%2217%22%20y%3D%2212%22%20width%3D%2238%22%20height%3D%2237%22%20rx%3D%226%22%20fill%3D%22%23262a31%22%20stroke%3D%22%23f6a622%22%20stroke-width%3D%223%22%2F%3E%0A%3Ccircle%20cx%3D%2243%22%20cy%3D%2223%22%20r%3D%225%22%20fill%3D%22%23f6a622%22%2F%3E%0A%3Cpath%20d%3D%22M21%2043%2030%2030%2037%2037%2043%2032%2051%2043Z%22%20fill%3D%22%23f3f4f5%22%2F%3E%0A%3C%2Fsvg%3E">
+<title>Freedom Music Manager 1.0.0 RC 3</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%231b1e24%22%2F%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2234%22%20r%3D%2223%22%20fill%3D%22%2330353d%22%20stroke%3D%22%23f6a622%22%20stroke-width%3D%222.5%22%2F%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2234%22%20r%3D%2217%22%20fill%3D%22none%22%20stroke%3D%22%2359616c%22%20stroke-width%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2234%22%20r%3D%2211%22%20fill%3D%22none%22%20stroke%3D%22%2359616c%22%20stroke-width%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2234%22%20r%3D%224%22%20fill%3D%22%23f6a622%22%2F%3E%3Cpath%20d%3D%22M38%2013v25.5c0%205-4.2%208.5-9.1%208.5-4.3%200-7-2.3-7-5.5%200-4%204.3-7%209-7%201.4%200%202.5.2%203.1.5V15l20-5v21.5c0%205-4.2%208.5-9.1%208.5-4.3%200-7-2.3-7-5.5%200-4%204.3-7%209-7%201.4%200%202.5.2%203.1.5V18z%22%20fill%3D%22%23f6a622%22%20stroke%3D%22%231b1e24%22%20stroke-width%3D%221.2%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E">
 <style>
   :root { color-scheme:dark; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; --bg:#10141b; --panel:#19202b; --line:#2b3442; --muted:#a9b4c5; --accent:#9bbef8; --text:#f1f4fa; }
   [hidden] {display:none!important}
@@ -1021,18 +1021,18 @@ body {padding-bottom:var(--music-player-height)}
 
 #showAlbums,#viewerShowAlbums {white-space:nowrap;font-size:11px;padding-inline:5px}
 
-/* Metadata facets are independent of virtual collections and tags. */
-.music-filter-panel {border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px 12px;margin:0 0 10px;display:flex;flex-direction:column;gap:8px;min-width:0}
-.music-filter-heading {display:flex;align-items:center;gap:9px;flex-wrap:wrap}
-.music-filter-heading strong {font-size:13px}
-#musicIndexProgress {flex:1;min-width:0;white-space:normal}
-#musicFilterReset,#musicSortDirection {font-size:12px;padding:7px 10px}
-.music-filter-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;align-items:end}
-.music-filter-fields label {display:flex;flex-direction:column;gap:4px;min-width:0;font-size:11px;color:var(--muted)}
-.music-filter-fields select {font-size:12px;width:100%;min-width:0;padding:8px 7px}
-#musicSortDirection {min-height:34px;justify-self:start}
-#musicFilterSummary:empty {display:none}
-@media(max-width:520px){.music-filter-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.music-filter-panel{padding:8px}}
+/* One compact metadata row. Wrap only where viewport width requires it. */
+.music-filter-panel {border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:6px 8px;margin:0 0 8px;min-width:0}
+.music-filter-fields {display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0}
+.music-filter-fields select {font-size:12px;flex:1 1 100px;min-width:90px;max-width:100%;width:0;height:32px;padding:4px 6px}
+.music-filter-fields #musicSort {flex:1.45 1 154px;min-width:145px}
+.music-filter-fields #musicLength {flex:1.1 1 115px;min-width:100px}
+#musicFilterReset,#musicSortDirection {font-size:12px;flex:0 0 auto;height:32px;min-height:32px;padding:4px 9px;white-space:nowrap}
+@media(max-width:520px){
+  .music-filter-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+  .music-filter-fields select,.music-filter-fields #musicSort,.music-filter-fields #musicLength {width:100%;min-width:0}
+  #musicFilterReset,#musicSortDirection {width:100%;min-width:0}
+}
 
 /* RC 2: keep long collection names and their actions inside narrow sidebars. */
 .shell > aside .collection-header{display:flex;flex-wrap:wrap!important;gap:4px;min-width:0;max-width:100%;overflow:visible}
@@ -1093,7 +1093,7 @@ body {padding-bottom:var(--music-player-height)}
     </div>
     <div class="collection-search-row">
       <input id="collectionQuery" type="search" placeholder="Search collections…" aria-label="Search collections or tags" disabled>
-      <button id="collectionOperator" class="collection-operator" type="button" aria-label="Collection filtering: OFF" title="Click to cycle OFF, OR, AND. OFF: one collection or one tag. OR: any selected collection. AND: all selected collections.">OFF</button>
+      <button id="collectionOperator" class="collection-operator" type="button" aria-label="Collection filtering: OFF" title="OFF: choose one collection, tag, Favorites or Trash. OR: match any selected sidebar criterion. AND: match all. Music metadata, search, format and locked folder filters always narrow those results.">OFF</button>
     </div>
     <div id="albumList" class="collection-scroll"></div>
     <div id="tagList" class="collection-scroll tag-chips" hidden></div>
@@ -1107,17 +1107,18 @@ body {padding-bottom:var(--music-player-height)}
   <main>
 
     <section id="musicFilters" class="music-filter-panel" aria-label="Music metadata filters">
-      <div class="music-filter-heading"><strong>Music library filters</strong><span id="musicIndexProgress" class="small" aria-live="polite"></span><button id="musicFilterReset" type="button" class="btn" disabled>Reset filters</button></div>
+      <span id="musicIndexProgress" hidden></span>
       <div class="music-filter-fields">
-        <label>Artist<select id="musicArtist" aria-label="Filter by artist"><option value="">All artists</option></select></label>
-        <label>Album<select id="musicAlbum" aria-label="Filter by actual album"><option value="">All albums</option></select></label>
-        <label>Genre<select id="musicGenre" aria-label="Filter by genre"><option value="">All genres</option></select></label>
-        <label>Year<select id="musicYear" aria-label="Filter by release year"><option value="">All years</option></select></label>
-        <label>Duration<select id="musicLength" aria-label="Filter by duration"><option value="">Any duration</option><option value="short">Under 2 min</option><option value="medium">2–5 min</option><option value="long">5 min or more</option><option value="unknown">Unknown duration</option></select></label>
-        <label>Sort by<select id="musicSort" aria-label="Sort tracks"><option value="auto">Default / collection order</option><option value="title">Title</option><option value="artist">Artist</option><option value="album">Album / track number</option><option value="genre">Genre</option><option value="year">Year</option><option value="duration">Duration</option><option value="format">Format</option><option value="name">Filename</option><option value="path">File path</option></select></label>
+        <select id="musicArtist" aria-label="Filter by artist"><option value="">All artists</option></select>
+        <select id="musicAlbum" aria-label="Filter by actual album"><option value="">All albums</option></select>
+        <select id="musicGenre" aria-label="Filter by genre"><option value="">All genres</option></select>
+        <select id="musicYear" aria-label="Filter by release year"><option value="">All years</option></select>
+        <select id="musicLength" aria-label="Filter by duration"><option value="">Any duration</option><option value="short">Under 2 min</option><option value="medium">2–5 min</option><option value="long">5 min or more</option><option value="unknown">Unknown duration</option></select>
+        <select id="musicSort" aria-label="Sort tracks"><option value="auto">Sort: default order</option><option value="title">Sort: title</option><option value="artist">Sort: artist</option><option value="album">Sort: album / track</option><option value="genre">Sort: genre</option><option value="year">Sort: year</option><option value="duration">Sort: duration</option><option value="format">Sort: format</option><option value="name">Sort: filename</option><option value="path">Sort: file path</option></select>
         <button id="musicSortDirection" class="btn" type="button" aria-label="Sort ascending" title="Change sort direction" disabled>↑ Asc</button>
+        <button id="musicFilterReset" type="button" class="btn" title="Clear metadata filters, search, format and folder; keep selected collections and tags" disabled>Reset filters</button>
       </div>
-      <div id="musicFilterSummary" class="small" aria-live="polite"></div>
+      <div id="musicFilterSummary" hidden></div>
     </section>
     <div class="results-toolbar">
       <button class="btn danger" id="deleteSelectedTrash" hidden disabled title="Permanently delete only the selected indexed Trash files. Original media is deleted without using the system Recycle Bin.">🗑 Delete selected</button>
@@ -1141,7 +1142,7 @@ body {padding-bottom:var(--music-player-height)}
       <h2>Your music, offline and organized</h2>
       <p>Choose your media library root (or the included demo-music folder to try the app). The music manager finds audio files in subfolders. Favorites, music collections, tags and the file index are human-readable files in <code>__music/data/</code>. Thumbnails are stored in <code>__music/data/thumbs/</code>.</p>
       <button class="btn primary" id="openFolder2">Choose folder</button>
-      <p class="small">Works in Chrome and Edge. Your music never leaves your computer. Freedom Music Manager 1.0.0 release candidate 2 · GPL-3.0 · No warranty.</p>
+      <p class="small">Works in Chrome and Edge. Your music never leaves your computer. Freedom Music Manager 1.0.0 release candidate 3 · GPL-3.0 · No warranty.</p>
     </div>
   </main>
 </div>

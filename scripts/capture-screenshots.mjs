@@ -131,6 +131,15 @@ try {
   await page.locator('#musicSort').selectOption('title');
   await page.waitForFunction(() => filtered[0]?.music?.title === 'Blue Horizon');
   await page.locator('#musicSort').selectOption('auto');
+  // Desktop filters must fit one compact row, without a visible diagnostic header.
+  await page.waitForFunction(()=>{
+    const panel=document.getElementById('musicFilters');
+    const controls=[...panel.querySelectorAll('select,button')];
+    return controls.length===8&&controls.every(e=>Math.abs(e.getBoundingClientRect().top-controls[0].getBoundingClientRect().top)<2)
+      &&document.getElementById('musicIndexProgress').hidden&&document.getElementById('musicFilterSummary').hidden;
+  });
+  if(!decodeURIComponent(await page.locator('link[rel="icon"]').getAttribute('href')).includes('M38 13v25.5'))throw Error('Music favicon missing');
+  console.log('PASS: compact one-row metadata filters and music favicon');
   // Collection actions must fit in the narrow desktop sidebar, not just the viewport.
   await page.waitForFunction(()=>{
     const aside=document.querySelector('.aside-content').getBoundingClientRect();

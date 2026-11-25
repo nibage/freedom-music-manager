@@ -1,6 +1,0 @@
-Trips/Coastline/Hidden cove.svg
-Trips/Coastline/Sunset beach.svg
-Trips/Coastline/Sea cliffs.svg
-Trips/City/Old town.svg
-Trips/City/Rooftop view.svg
-Trips/City/Evening street.svg
