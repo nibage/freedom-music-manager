@@ -944,6 +944,15 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
 .detailed-mode .grid .kind-tag {display:none}
 #viewer .stage audio {width:min(85%,680px);max-width:100%;z-index:1}
 
+
+.music-line-2 {display:none}
+.detailed-mode .music-line-2 {display:block;white-space:normal;overflow-wrap:anywhere}
+.detailed-mode .grid .photo {grid-template-columns:88px minmax(0,1fr) 44px}
+.detailed-mode .grid .video-tile {width:88px;height:88px}
+.detailed-mode .grid .filename {white-space:normal;overflow-wrap:anywhere}
+#musicViewerMetadata {white-space:pre-line;flex:0 0 auto;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+#viewer .stage #bigImage:not([hidden]) {max-width:min(65%,360px);max-height:45vh!important;aspect-ratio:1/1;object-fit:contain}
+
 </style>
 </head>
 <body>
@@ -952,7 +961,7 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
     <h1>♫ Freedom Music Manager</h1><span id="results" class="results-header" aria-live="polite">Choose a media library folder.</span><span class="small" id="libraryName" hidden aria-hidden="true">No library selected</span>
   </div>
   <div class="filters">
-    <input id="query" type="search" placeholder="Search… (/)" title="Search filename, path or tag; press / to focus" aria-label="Search media">
+    <input id="query" type="search" placeholder="Search… (/)" title="Search title, artist, album, genre, filename or tag; press / to focus" aria-label="Search media">
     <select id="folder" aria-label="Filter by folder"><option value="">All folders</option></select>
     <label class="folder-lock" id="folderLockLabel" title="Lock folder: keep the selected folder while browsing albums and tags. In OR mode, folder is temporarily ignored but remembered.">
       <input id="folderLock" type="checkbox" checked aria-label="Lock selected folder" />
@@ -1031,7 +1040,7 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
     <div class="stage" id="viewerStage"><button id="prev" title="Previous (←)">‹</button><img id="bigImage" alt="Selected photo" hidden><audio id="bigVideo" controls preload="metadata" hidden></audio><button id="next" title="Next (→)">›</button></div>
     <section class="details">
       <button class="close" id="closeViewer" title="Close (Esc)">×</button>
-      <h2 id="fileLabel"></h2><div id="pathLabel"></div>
+      <h2 id="fileLabel"></h2><div id="musicViewerMetadata"></div><div id="pathLabel"></div>
       <div class="viewer-primary-actions">
         <button class="btn" id="favViewer">♡ Favorites</button>
         <button class="btn danger" id="moveToTrash" title="Hide this media from normal views; the original file stays on disk">🗑 Trash</button>
@@ -1564,6 +1573,208 @@ async function loadMetadata(){
   const ad=await maybeGetDir(d,'albums');if(ad)for await(const [name,h] of ad.entries())if(h.kind==='file'&&name.endsWith('.txt'))albums.set(name.slice(0,-4),new Set(lines(await(await h.getFile()).text())));
 }
 function sortFiles(items){items.sort((a,b)=>b.path.localeCompare(a.path,'cs',{numeric:true}));return items}
+/* BEGIN AUDIO METADATA */
+const MUSIC_READ_LIMIT=8*1024*1024;
+const musicAscii=(b,p,n)=>Array.from(b.subarray(p,p+n),x=>String.fromCharCode(x)).join('');
+const musicView=b=>new DataView(b.buffer,b.byteOffset,b.byteLength);
+const musicDecode=(b,enc='utf-8')=>new TextDecoder(enc).decode(b).replace(/\0+$/,'').trim();
+const musicSync=(b,p)=>(b[p]&127)*2097152+(b[p+1]&127)*16384+(b[p+2]&127)*128+(b[p+3]&127);
+const musicKeys={TITLE:'title',ARTIST:'artist',ALBUM:'album',ALBUMARTIST:'albumArtist',GENRE:'genre',DATE:'year',YEAR:'year',TRACKNUMBER:'track',TRACK:'track',DISCNUMBER:'disc',DISC:'disc'};
+function musicSet(m,k,v){if(typeof v==='string'&&v.trim()&&!m[k])m[k]=v.trim().slice(0,1024)}
+function musicCover(m,b,mime){if(!m.cover&&b.length&&b.length<=MUSIC_READ_LIMIT&&/^image\/(jpeg|png|gif|webp)$/i.test(mime))m.cover=new Blob([b],{type:mime})}
+function musicPicture(m,b){
+  if(b.length<32)return;const v=musicView(b);let p=4,n=v.getUint32(p);p+=4;
+  if(p+n+4>b.length)return;const mime=musicAscii(b,p,n);p+=n;n=v.getUint32(p);p+=4+n+16;
+  if(p+4>b.length)return;n=v.getUint32(p);p+=4;if(p+n<=b.length)musicCover(m,b.subarray(p,p+n),mime);
+}
+function musicComments(m,b,art){
+  if(b.length<8)return;const v=musicView(b);let p=4+v.getUint32(0,true);if(p+4>b.length)return;
+  const count=Math.min(v.getUint32(p,true),10000);p+=4;
+  for(let i=0;i<count&&p+4<=b.length;i++){
+    const n=v.getUint32(p,true);p+=4;if(n>b.length-p)break;
+    const s=musicDecode(b.subarray(p,p+n));p+=n;const eq=s.indexOf('=');if(eq<1)continue;
+    const k=s.slice(0,eq).toUpperCase().replace(/[_ -]/g,''),val=s.slice(eq+1);
+    if(musicKeys[k])musicSet(m,musicKeys[k],val);
+    else if(art&&k==='METADATABLOCKPICTURE'&&val.length<=MUSIC_READ_LIMIT)try{musicPicture(m,Uint8Array.from(atob(val),x=>x.charCodeAt(0)))}catch(_){}
+  }
+}
+function musicId3Text(b){
+  if(!b.length)return '';const enc=b[0],t=b.subarray(1);
+  if(enc===1){if(t[0]===255&&t[1]===254)return musicDecode(t.subarray(2),'utf-16le');if(t[0]===254&&t[1]===255)return musicDecode(t.subarray(2),'utf-16be');return musicDecode(t,'utf-16le')}
+  return musicDecode(t,enc===2?'utf-16be':enc===0?'windows-1252':'utf-8').replace(/\0/g,' / ');
+}
+function musicUnstuff(b){const out=new Uint8Array(b.length);let j=0;for(let i=0;i<b.length;i++){out[j++]=b[i];if(b[i]===255&&b[i+1]===0)i++}return out.subarray(0,j)}
+function musicId3(m,b,art){
+  if(b.length<10||musicAscii(b,0,3)!=='ID3')return 0;
+  const ver=b[3],end=10+musicSync(b,6);if(ver<2||ver>4)return end;
+  let data=b.subarray(10,Math.min(end,b.length));if((b[5]&128)&&ver<4)data=musicUnstuff(data);
+  const v=musicView(data);let p=0;if(b[5]&64){if(ver===2||data.length<4)return end;p=ver===3?4+v.getUint32(0):musicSync(data,0)}
+  const map={TIT2:'title',TT2:'title',TPE1:'artist',TP1:'artist',TALB:'album',TAL:'album',TPE2:'albumArtist',TP2:'albumArtist',TCON:'genre',TCO:'genre',TYER:'year',TYE:'year',TDRC:'year',TRCK:'track',TRK:'track',TPOS:'disc',TPA:'disc'},h=ver===2?6:10;
+  while(p+h<=data.length){
+    const id=musicAscii(data,p,ver===2?3:4);if(!/^[A-Z0-9]{3,4}$/.test(id))break;
+    const n=ver===2?data[p+3]*65536+data[p+4]*256+data[p+5]:ver===4?musicSync(data,p+4):v.getUint32(p+4),flags=ver===2?0:data[p+9];
+    p+=h;if(!n||n>data.length-p)break;let t=data.subarray(p,p+n);p+=n;
+    if(ver===3&&(flags&0xc0)||ver===4&&(flags&0x0c))continue;
+    if(ver===3&&(flags&0x20)||ver===4&&(flags&0x40))t=t.subarray(1);
+    if(ver===4&&(flags&1))t=t.subarray(4);
+    if(ver===4&&((flags&2)||(b[5]&128)))t=musicUnstuff(t);
+    if(map[id])musicSet(m,map[id],musicId3Text(t));
+    if(art&&(id==='APIC'||id==='PIC')&&t.length>5){
+      let j=1,mime='';if(id==='PIC'){mime=musicAscii(t,1,3)==='PNG'?'image/png':'image/jpeg';j=4}else{const z=t.indexOf(0,1);if(z<0)continue;mime=musicAscii(t,1,z-1);j=z+1}
+      j++;const wide=t[0]===1||t[0]===2;
+      while(j<t.length){if(t[j]===0&&(!wide||t[j+1]===0)){j+=wide?2:1;break}j+=wide?2:1}
+      musicCover(m,t.subarray(j),mime);
+    }
+  }return end;
+}
+function musicId3v1(m,b){
+  if(b.length!==128||musicAscii(b,0,3)!=='TAG')return;
+  for(const [k,p,n] of [['title',3,30],['artist',33,30],['album',63,30],['year',93,4]])musicSet(m,k,musicDecode(b.subarray(p,p+n),'windows-1252'));
+  if(b[125]===0&&b[126])musicSet(m,'track',String(b[126]));
+}
+function musicFlac(m,b,art){
+  const v=musicView(b);let p=4;
+  while(p+4<=b.length){const type=b[p]&127,last=b[p]&128,n=b[p+1]*65536+b[p+2]*256+b[p+3];p+=4;if(p+n>b.length)break;
+    const t=b.subarray(p,p+n);
+    if(type===0&&n>=34){const rate=v.getUint32(p+10)>>>12,samples=(v.getUint32(p+10)&15)*4294967296+v.getUint32(p+14);if(rate&&samples)m.duration=samples/rate}
+    if(type===4)musicComments(m,t,art);if(type===6&&art)musicPicture(m,t);p+=n;if(last)break;
+  }
+}
+async function musicWave(m,file,art){
+  let p=12,rate=0,bytes=0;const map={INAM:'title',IART:'artist',IPRD:'album',IGNR:'genre',ICRD:'year',ITRK:'track',IPRT:'track'};
+  for(let i=0;i<2048&&p+8<=file.size;i++){
+    const h=new Uint8Array(await file.slice(p,p+8).arrayBuffer()),v=musicView(h),id=musicAscii(h,0,4),n=v.getUint32(4,true);p+=8;if(n>file.size-p)break;
+    if(id==='data')bytes=n;
+    else if(id==='fmt '&&n>=16){const t=musicView(new Uint8Array(await file.slice(p,p+16).arrayBuffer()));rate=t.getUint32(8,true)}
+    else if((id==='LIST'||id.toLowerCase()==='id3 ')&&n<=MUSIC_READ_LIMIT){
+      const b=new Uint8Array(await file.slice(p,p+n).arrayBuffer()),v=musicView(b);
+      if(id.toLowerCase()==='id3 ')musicId3(m,b,art);
+      else if(musicAscii(b,0,4)==='INFO')for(let j=4;j+8<=b.length;){const key=musicAscii(b,j,4),len=v.getUint32(j+4,true);j+=8;if(j+len>b.length)break;if(map[key])musicSet(m,map[key],musicDecode(b.subarray(j,j+len)));j+=len+(len&1)}
+    }p+=n+(n&1);
+  }if(rate&&bytes)m.duration=bytes/rate;
+}
+async function musicOgg(m,file,b,art){
+  let p=0,parts=[],total=0,rate=0,serial=null,preSkip=0,done=false;
+  while(!done&&p+27<=b.length&&musicAscii(b,p,4)==='OggS'){
+    const count=b[p+26];if(p+27+count>b.length)break;
+    const v=musicView(b),s=v.getUint32(p+14,true);if(serial===null)serial=s;
+    let off=p+27+count;const lace=b.subarray(p+27,off);
+    for(const n of lace){if(off+n>b.length)return;if(s===serial){
+      parts.push(b.subarray(off,off+n));total+=n;if(total>MUSIC_READ_LIMIT)return;
+      if(n<255){const packet=new Uint8Array(total);let j=0;for(const part of parts){packet.set(part,j);j+=part.length}parts=[];total=0;
+        if(packet.length>=19&&musicAscii(packet,0,8)==='OpusHead'){rate=48000;preSkip=musicView(packet).getUint16(10,true)}
+        if(packet.length>=16&&packet[0]===1&&musicAscii(packet,1,6)==='vorbis')rate=musicView(packet).getUint32(12,true);
+        if(musicAscii(packet,0,8)==='OpusTags'){musicComments(m,packet.subarray(8),art);done=true;break}
+        if(packet[0]===3&&musicAscii(packet,1,6)==='vorbis'){musicComments(m,packet.subarray(7),art);done=true;break}
+      }
+    }off+=n}p=off;
+  }
+  if(rate){const tail=new Uint8Array(await file.slice(Math.max(0,file.size-131072)).arrayBuffer()),v=musicView(tail);
+    for(let i=tail.length-27;i>=0;i--)if(tail[i]===79&&musicAscii(tail,i,4)==='OggS'&&(tail[i+5]&4)&&v.getUint32(i+14,true)===serial){
+      const hi=v.getUint32(i+10,true),lo=v.getUint32(i+6,true);if(hi!==4294967295)m.duration=Math.max(0,(hi*4294967296+lo-preSkip)/rate);break;
+    }
+  }
+}
+function musicMp4Boxes(b,start,end,visit){
+  const v=musicView(b);for(let p=start;p+8<=end;){let n=v.getUint32(p),h=8;const id=musicAscii(b,p+4,4);
+    if(n===1){if(p+16>end)break;n=v.getUint32(p+8)*4294967296+v.getUint32(p+12);h=16}else if(n===0)n=end-p;
+    if(n<h||n>end-p)break;visit(id,p+h,p+n);p+=n;
+  }
+}
+function musicMp4Moov(m,b,art){
+  const v=musicView(b),map={'©nam':'title','©ART':'artist','aART':'albumArtist','©alb':'album','©gen':'genre','©day':'year'};
+  function walk(start,end,depth){if(depth>8)return;musicMp4Boxes(b,start,end,(id,a,z)=>{
+    if(id==='mvhd'&&z-a>=20){const ver=b[a],p=a+(ver===1?20:12);if(p+(ver===1?12:8)<=z){const scale=v.getUint32(p),duration=ver===1?v.getUint32(p+4)*4294967296+v.getUint32(p+8):v.getUint32(p+4);if(scale&&duration!==4294967295)m.duration=duration/scale}}
+    else if(id==='udta'||id==='moov')walk(a,z,depth+1);
+    else if(id==='meta'&&a+4<=z)walk(a+4,z,depth+1);
+    else if(id==='ilst')musicMp4Boxes(b,a,z,(key,x,y)=>musicMp4Boxes(b,x,y,(kind,s,t)=>{
+      if(kind!=='data'||s+8>t)return;const type=v.getUint32(s)&0xffffff,body=b.subarray(s+8,t);
+      if(map[key])musicSet(m,map[key],musicDecode(body,type===2?'utf-16be':'utf-8'));
+      else if((key==='trkn'||key==='disk')&&body.length>=6){const q=musicView(body),num=q.getUint16(2),total=q.getUint16(4);if(num)musicSet(m,key==='trkn'?'track':'disc',num+(total?'/'+total:''))}
+      else if(key==='covr'&&art)musicCover(m,body,type===14?'image/png':'image/jpeg');
+    }));
+  })}walk(0,b.length,0);
+}
+async function musicMp4(m,file,art){
+  for(let p=0,i=0;p+8<=file.size&&i<2048;i++){
+    const b=new Uint8Array(await file.slice(p,p+16).arrayBuffer()),v=musicView(b);let n=v.getUint32(0),h=8;
+    if(n===1){if(b.length<16)break;n=v.getUint32(8)*4294967296+v.getUint32(12);h=16}else if(n===0)n=file.size-p;
+    if(n<h||n>file.size-p)break;
+    if(musicAscii(b,4,4)==='moov'){if(n-h<=MUSIC_READ_LIMIT)musicMp4Moov(m,new Uint8Array(await file.slice(p+h,p+n).arrayBuffer()),art);return}
+    p+=n;
+  }
+}
+function musicMp3Duration(m,b,start){
+  const v=musicView(b);for(let p=start;p+40<b.length&&p<start+65536;p++){
+    if(b[p]!==255||(b[p+1]&0xe0)!==0xe0)continue;
+    const ver=(b[p+1]>>3)&3,layer=(b[p+1]>>1)&3,ri=(b[p+2]>>2)&3,bi=b[p+2]>>4;
+    if(ver===1||layer!==1||ri===3||bi===0||bi===15)continue;
+    const rate=[44100,48000,32000][ri]/(ver===3?1:ver===2?2:4),mono=(b[p+3]>>6)===3;
+    const side=ver===3?(mono?17:32):(mono?9:17),q=p+4+((b[p+1]&1)?0:2)+side;
+    if(q+12<=b.length&&['Xing','Info'].includes(musicAscii(b,q,4))&&(v.getUint32(q+4)&1))m.duration=v.getUint32(q+8)*(ver===3?1152:576)/rate;
+    else if(p+54<=b.length&&musicAscii(b,p+36,4)==='VBRI')m.duration=v.getUint32(p+50)*(ver===3?1152:576)/rate;
+    return;
+  }
+}
+async function readAudioMetadata(file,art=false){
+  const m={};try{
+    const h=new Uint8Array(await file.slice(0,12).arrayBuffer()),sig=musicAscii(h,0,4);
+    if(sig==='RIFF'&&musicAscii(h,8,4)==='WAVE')await musicWave(m,file,art);
+    else if(musicAscii(h,4,4)==='ftyp')await musicMp4(m,file,art);
+    else if(sig==='fLaC'||sig==='OggS'||musicAscii(h,0,3)==='ID3'||/\.mp3$/i.test(file.name||'')){
+      const b=new Uint8Array(await file.slice(0,MUSIC_READ_LIMIT).arrayBuffer());
+      if(sig==='fLaC')musicFlac(m,b,art);
+      else if(sig==='OggS')await musicOgg(m,file,b,art);
+      else{const start=musicId3(m,b,art);musicMp3Duration(m,b,start);if(file.size>=128)musicId3v1(m,new Uint8Array(await file.slice(file.size-128).arrayBuffer()))}
+    }
+  }catch(e){console.debug('Partial audio metadata',e)}
+  if(!Number.isFinite(m.duration)||m.duration<=0)delete m.duration;return m;
+}
+/* END AUDIO METADATA */
+
+let musicIndexRun=0,musicSearchTimer=null;
+function musicTitle(item){return item.music?.title||item.name.replace(/\.[^.]+$/,'')}
+function musicDuration(n){if(!Number.isFinite(n))return '';const s=Math.round(n);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+function musicDetailLines(item){
+  const m=item.music||{},format=audioFormat(item.path).toUpperCase(),duration=musicDuration(m.duration);
+  return [[m.artist,m.album].filter(Boolean).join(' · ')||'Unknown artist / album',
+    [m.genre,m.year,m.disc?'Disc '+m.disc:'',m.track?'Track '+m.track:'',format,duration].filter(Boolean).join(' · '),item.path];
+}
+function updateMusicCaption(card,item){
+  const name=card.querySelector('.filename'),meta=card.querySelector('.meta');if(!name||!meta)return;
+  name.textContent=musicTitle(item);
+  const values=musicDetailLines(item);
+  for(let i=0;i<values.length;i++){const row=meta.querySelector('.music-line-'+i);if(row)row.textContent=values[i]}
+}
+function refreshMusicCaption(item){
+  for(const card of el('gallery').querySelectorAll('.photo'))if(card.dataset.path===item.path)updateMusicCaption(card,item);
+  if(currentPath===item.path){el('fileLabel').textContent=musicTitle(item);el('musicViewerMetadata').textContent=musicDetailLines(item).slice(0,2).join('\n')}
+}
+function loadTrackMetadata(item,file){
+  if(item.musicPromise)return item.musicPromise;
+  const activeRoot=root;
+  item.musicPromise=(async()=>{
+    try{const source=file||await itemFile(item),m=await readAudioMetadata(source);
+      if(root!==activeRoot||byPath.get(item.path)!==item)return m;
+      item.music={...m,...(item.music?.duration?{duration:item.music.duration}:{})};refreshMusicCaption(item);
+      if(el('query').value.trim()&&!musicSearchTimer)musicSearchTimer=setTimeout(()=>{musicSearchTimer=null;if(root===activeRoot)filterAndRender()},300);
+      return item.music;
+    }catch(_){return item.music||{}}
+  })();return item.musicPromise;
+}
+function startMusicIndex(items){
+  clearTimeout(musicSearchTimer);musicSearchTimer=null;
+  const run=++musicIndexRun,activeRoot=root;let i=0;
+  async function worker(){
+    while(run===musicIndexRun&&root===activeRoot&&i<items.length){
+      const item=items[i++];if(byPath.get(item.path)!==item)return;
+      await loadTrackMetadata(item);
+      if(i%32===0)await new Promise(r=>setTimeout(r,0));
+    }
+  }
+  for(let j=0;j<3;j++)void worker();
+}
+
 function buildItem(path,handle=null){return {path,name:path.split('/').at(-1),kind:typeOf(path),handle}}
 function installItems(items,origin){
   images=sortFiles(items);byPath=new Map(images.map(x=>[x.path,x]));
@@ -1583,7 +1794,7 @@ function installItems(items,origin){
   for(const folder of [...folders].sort((a,b)=>a.localeCompare(b,'cs',{numeric:true})))select.add(new Option(folder,folder));
   if(folders.has(before))select.value=before;
   el('rescan').disabled=scanInProgress||thumbResetting||deletingMedia;el('newCollection').disabled=false;el('collectionQuery').disabled=false;el('rebuildThumbs').disabled=scanInProgress||thumbResetting||deletingMedia;el('welcome').hidden=true;
-  renderAlbumList();renderTagList();filterAndRender();setStatus(origin);
+  renderAlbumList();renderTagList();filterAndRender();setStatus(origin);startMusicIndex(images);
 }
 async function loadIndex(){
   const d=await getMetaDir(false),txt=await readText(d,INDEX_NAME);
@@ -1660,7 +1871,7 @@ async function itemFile(item){
 function releaseViewerMedia(){
   viewerNo++;
   const video=el('bigVideo');video.pause();video.removeAttribute('src');video.load();video.hidden=true;
-  const img=el('bigImage');img.removeAttribute('src');img.hidden=true;
+  const img=el('bigImage');img.removeAttribute('src');delete img.dataset.path;img.hidden=true;
   if(bigURL)URL.revokeObjectURL(bigURL);bigURL=null;
 }
 // IndexedDB stores opaque folder handles, not a path string. The browser may still require new permission.
@@ -1912,7 +2123,7 @@ function filterAndRender(){
     }
     if(kind&&audioFormat(path)!==kind)return false;
     if(!globalScope&&folder&&!path.startsWith(folder+'/'))return false;
-    if(q&&!path.toLocaleLowerCase('cs').includes(q)&&!(tags.get(path)||[]).some(t=>t.toLocaleLowerCase('cs').includes(q)))return false;
+    if(q&&![path,...Object.values(item.music||{}),...(tags.get(path)||[])].some(t=>String(t).toLocaleLowerCase('cs').includes(q)))return false;
     return true;
   });
   navButtonActive();renderCards();
@@ -1938,7 +2149,7 @@ function renderCards(){
     }
     const heart=document.createElement('button');heart.className='heart'+(favorites.has(item.path)?' on':'');heart.textContent=favorites.has(item.path)?'♥':'♡';heart.title='Toggle favorite';heart.setAttribute('aria-label',heart.title);
     heart.onclick=()=>{toggleFavorite(item.path);if(activeView.type==='favorites')filterAndRender();else{heart.className='heart'+(favorites.has(item.path)?' on':'');heart.textContent=favorites.has(item.path)?'♥':'♡'}};
-    const meta=document.createElement('div');meta.className='meta';const name=document.createElement('span');name.className='filename';name.textContent=item.name.replace(/\.[^.]+$/,'');name.title=item.path;const details=document.createElement('span');details.className='track-details';details.textContent=audioFormat(item.path).toUpperCase()+' · '+(item.path.includes('/')?item.path.split('/').slice(0,-1).join('/'):'Library root');meta.append(name,details);
+    const meta=document.createElement('div');meta.className='meta';const name=document.createElement('span');name.className='filename';name.title=item.path;meta.append(name);for(let i=0;i<3;i++){const line=document.createElement('span');line.className='track-details music-line-'+i;meta.append(line)}
     meta.setAttribute('role','button');meta.setAttribute('tabindex','0');meta.setAttribute('aria-label','Select '+item.name);meta.title='Select this track (Shift-click for range)';
     const selectFromCaption=e=>{
       e.preventDefault();e.stopPropagation();
@@ -1947,7 +2158,7 @@ function renderCards(){
     };
     meta.onclick=selectFromCaption;
     meta.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){selectFromCaption(e)}};
-    card.append(media,heart,meta);host.append(card);observer.observe(thumbnail);
+    card.append(media,heart,meta);updateMusicCaption(card,item);host.append(card);observer.observe(thumbnail);
   }
   el('results').textContent=(activeView.type==='trash'?'Trash · ':(activeView.type==='tags'?'Tags '+selectedTagKeys.size+' · ':''))+filtered.length.toLocaleString('cs-CZ')+' results · showing '+slice.length.toLocaleString('cs-CZ')+' / '+images.length.toLocaleString('cs-CZ')+' files';
   // Always show the action in Trash, even if the search currently filters its cards.
@@ -2215,7 +2426,9 @@ async function persistedThumb(item,file,version){
     }}catch(e){if(e.name!=='NotFoundError')console.warn('Could not load cached thumbnail:',e)}
   }
   // Unsupported videos retain the fallback tile, without breaking the rest of the gallery.
-  const blob=await audioCoverBlob(item);
+  const embedded=await readAudioMetadata(file,true);if(version!==scanNo)return null;
+  let blob=null;try{if(embedded.cover)blob=await imageThumbBlob(embedded.cover)}catch(_){}
+  if(!blob)blob=await audioCoverBlob(item);
   if(!blob)return null;
   if(version!==scanNo)return null;
   const url=URL.createObjectURL(blob);
@@ -2945,7 +3158,7 @@ async function viewerRemoveCollection(){
   await saveTags();viewerCollectionSelection='';renderViewerCollections();renderTagList();filterAndRender();
 }
 function updateMembership(){}
-async function openViewer(path){ const item=byPath.get(path); if(!item)return; releaseViewerMedia(); const req=viewerNo; currentPath=path; viewerCollectionSelection=''; el('fileLabel').textContent=item.name; el('pathLabel').textContent=item.path; updateViewerFavorite(); updateViewerTrashButtons(); switchViewerCollections(viewerCollectionMode); if(!el('viewer').open) el('viewer').showModal(); try{ const file=await itemFile(item); if(viewerNo!==req||currentPath!==path||!el('viewer').open)return; bigURL=URL.createObjectURL(file); if(item.kind==='audio'){ const v=el('bigVideo'); v.hidden=false; v.src=bigURL; v.load(); } else { const img=el('bigImage'); img.hidden=false; img.src=bigURL; } }catch(e){ toast('Could not open file; try refreshing the index: '+e.message) } }
+async function openViewer(path){ const item=byPath.get(path); if(!item)return; releaseViewerMedia(); const req=viewerNo; currentPath=path; viewerCollectionSelection=''; el('fileLabel').textContent=musicTitle(item); el('musicViewerMetadata').textContent=musicDetailLines(item).slice(0,2).join('\n'); el('pathLabel').textContent=item.path; updateViewerFavorite(); updateViewerTrashButtons(); switchViewerCollections(viewerCollectionMode); if(!el('viewer').open) el('viewer').showModal(); try{ const file=await itemFile(item); if(viewerNo!==req||currentPath!==path||!el('viewer').open)return; bigURL=URL.createObjectURL(file); if(item.kind==='audio'){ const v=el('bigVideo'); v.hidden=false; v.src=bigURL; v.load(); void loadTrackMetadata(item,file); const image=el('bigImage');image.hidden=false;image.src=DEFAULT_COVER;image.dataset.path=path;queueThumb(path,image); } else { const img=el('bigImage'); img.hidden=false; img.src=bigURL; } }catch(e){ toast('Could not open file; try refreshing the index: '+e.message) } }
 function closeViewer(){ releaseViewerMedia(); currentPath=null; if(el('viewer').open) el('viewer').close(); }
 
 const HELP={
@@ -2963,7 +3176,7 @@ const HELP={
   newCollection:'Create a new album or a new reusable tag.',
   removeCollection:'Delete the selected album or remove selected tags globally; original media files stay untouched.',
   collectionQuery:'Search albums or tags in the left sidebar.',
-  query:'Search filenames, paths, and tags. Combines with folder and media-type filters using AND.',
+  query:'Search title, artist, album, genre, path and tags. Combines with folder and audio-format filters.',
   folder:'Filter by folder and subfolders. Lock folder keeps this choice when filtering albums/tags; OR temporarily ignores it.',
   kind:'Choose all media, photos only, or videos only.',
   layoutToggle:'Switch between Classic cover cards and the detailed track list.',
@@ -3183,6 +3396,7 @@ mediaDialog.addEventListener('pointerdown',e=>{ dismissPointerStartedOnBackgroun
 mediaDialog.addEventListener('click',e=>{ const backgroundClick=e.target===mediaStage||hitViewerBackdrop(e); if(dismissPointerStartedOnBackground&&backgroundClick) closeViewer(); dismissPointerStartedOnBackground=false; });
 mediaDialog.addEventListener('pointercancel',()=>{dismissPointerStartedOnBackground=false}); mediaDialog.addEventListener('close',()=>{dismissPointerStartedOnBackground=false});
 el('prev').onclick=()=>moveViewer(-1); el('next').onclick=()=>moveViewer(1);
+el('bigVideo').addEventListener('loadedmetadata',()=>{const item=byPath.get(currentPath),n=el('bigVideo').duration;if(item&&Number.isFinite(n)&&n>0){item.music={...item.music,duration:n};refreshMusicCaption(item)}});
 el('bigVideo').addEventListener('error',()=>{if(!el('bigVideo').hidden)toast('This browser cannot play the audio (unsupported format or codec). Original file is unchanged.')});
 document.addEventListener('keydown',e=>{
   const editing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||document.activeElement?.isContentEditable;
