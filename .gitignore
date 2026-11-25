@@ -1,38 +1,23 @@
-# Source repository allowlist. Personal photo media and generated gallery metadata
-# must not be published accidentally. Distribution ZIPs use a stricter allowlist.
+# Allow only source and public documentation; never personal media or runtime metadata.
 *
 !.gitignore
 !README.md
 !LICENSE
-
-# Application (never commit personal __gallery/data/ files).
+!__music/
+__music/*
+!__music/index.html
 !__gallery/
 __gallery/*
 !__gallery/index.html
-
-# Bundled, fictional demo library (metadata but no generated thumbnails).
-!demo-gallery/
-!demo-gallery/**/
-!demo-gallery/**/*.svg
-!demo-gallery/README.md
-!demo-gallery/__gallery/data/favorites.txt
-!demo-gallery/__gallery/data/tags.tsv
-!demo-gallery/__gallery/data/albums/*.txt
-!demo-gallery/__gallery/data/tag-catalog.txt
-
-# Public documentation and CI-generated screenshots.
 !docs/
 !docs/REFERENCE.md
-!docs/media/
-!docs/media/*.svg
 !docs/screenshots/
 !docs/screenshots/*.png
-
-# Development-only source: tracked in Git, excluded from packaged ZIPs.
 !.github/
 !.github/workflows/
 !.github/workflows/*.yml
 !scripts/
 !scripts/*.mjs
+!scripts/*.py
 !tests/
 !tests/*.test.mjs
