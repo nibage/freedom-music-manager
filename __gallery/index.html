@@ -1020,6 +1020,19 @@ body {padding-bottom:var(--music-player-height)}
 
 
 #showAlbums,#viewerShowAlbums {white-space:nowrap;font-size:11px;padding-inline:5px}
+
+/* Metadata facets are independent of virtual collections and tags. */
+.music-filter-panel {border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:10px 12px;margin:0 0 10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.music-filter-heading {display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.music-filter-heading strong {font-size:13px}
+#musicIndexProgress {flex:1;min-width:0;white-space:normal}
+#musicFilterReset,#musicSortDirection {font-size:12px;padding:7px 10px}
+.music-filter-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;align-items:end}
+.music-filter-fields label {display:flex;flex-direction:column;gap:4px;min-width:0;font-size:11px;color:var(--muted)}
+.music-filter-fields select {font-size:12px;width:100%;min-width:0;padding:8px 7px}
+#musicSortDirection {min-height:34px;justify-self:start}
+#musicFilterSummary:empty {display:none}
+@media(max-width:520px){.music-filter-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.music-filter-panel{padding:8px}}
 </style>
 </head>
 <body>
@@ -1077,6 +1090,20 @@ body {padding-bottom:var(--music-player-height)}
     </div>
   </aside>
   <main>
+
+    <section id="musicFilters" class="music-filter-panel" aria-label="Music metadata filters">
+      <div class="music-filter-heading"><strong>Music library filters</strong><span id="musicIndexProgress" class="small" aria-live="polite"></span><button id="musicFilterReset" type="button" class="btn" disabled>Reset filters</button></div>
+      <div class="music-filter-fields">
+        <label>Artist<select id="musicArtist" aria-label="Filter by artist"><option value="">All artists</option></select></label>
+        <label>Album<select id="musicAlbum" aria-label="Filter by actual album"><option value="">All albums</option></select></label>
+        <label>Genre<select id="musicGenre" aria-label="Filter by genre"><option value="">All genres</option></select></label>
+        <label>Year<select id="musicYear" aria-label="Filter by release year"><option value="">All years</option></select></label>
+        <label>Duration<select id="musicLength" aria-label="Filter by duration"><option value="">Any duration</option><option value="short">Under 2 min</option><option value="medium">2–5 min</option><option value="long">5 min or more</option><option value="unknown">Unknown duration</option></select></label>
+        <label>Sort by<select id="musicSort" aria-label="Sort tracks"><option value="auto">Default / collection order</option><option value="title">Title</option><option value="artist">Artist</option><option value="album">Album / track number</option><option value="genre">Genre</option><option value="year">Year</option><option value="duration">Duration</option><option value="format">Format</option><option value="name">Filename</option><option value="path">File path</option></select></label>
+        <button id="musicSortDirection" class="btn" type="button" aria-label="Sort ascending" title="Change sort direction" disabled>↑ Asc</button>
+      </div>
+      <div id="musicFilterSummary" class="small" aria-live="polite"></div>
+    </section>
     <div class="results-toolbar">
       <button class="btn danger" id="deleteSelectedTrash" hidden disabled title="Permanently delete only the selected indexed Trash files. Original media is deleted without using the system Recycle Bin.">🗑 Delete selected</button>
       <button class="btn danger" id="deleteAllTrash" hidden disabled title="Permanently delete every indexed file in the in-gallery Trash. The operating system Recycle Bin is not used.">🗑 Delete all</button>
@@ -1853,7 +1880,130 @@ async function readAudioMetadata(file,art=false){
 }
 /* END AUDIO METADATA */
 
+/* BEGIN MUSIC FILTER LOGIC */
+const MUSIC_FACETS=['artist','album','genre','year'];
+const MUSIC_SORT_FIELDS=['auto','title','artist','album','genre','year','duration','format','name','path'];
+const musicCollator=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});
+function musicFold(value){return String(value??'').normalize('NFD').replace(/\p{M}/gu,'').toLocaleLowerCase().trim()}
+function musicYear(value){const s=String(value??'').trim(),m=s.match(/^\d{4}(?=$|[-/.\s])/);return m?m[0]:s}
+function musicFacetLabel(item,field){
+  const value=item.music?.[field];return field==='year'?musicYear(value):String(value??'').trim();
+}
+function musicFacetKey(item,field){
+  const value=musicFacetLabel(item,field);return value?'v:'+musicFold(value):item.musicReady?'missing':'pending';
+}
+function musicDurationBucket(item){
+  const n=item.music?.duration;if(!Number.isFinite(n)||n<=0)return item.musicReady?'unknown':'pending';
+  return n<120?'short':n<300?'medium':'long';
+}
+function matchesMusicFacets(item,facets,except=''){
+  for(const field of MUSIC_FACETS)if(field!==except&&facets[field]&&musicFacetKey(item,field)!==facets[field])return false;
+  return except==='duration'||!facets.duration||musicDurationBucket(item)===facets.duration;
+}
+function buildMusicFacets(items,facets){
+  const out=Object.fromEntries(MUSIC_FACETS.map(field=>[field,new Map()]));
+  for(const item of items){
+    for(const field of MUSIC_FACETS){
+      if(!matchesMusicFacets(item,facets,field))continue;
+      const key=musicFacetKey(item,field);if(key==='pending')continue;
+      const map=out[field],entry=map.get(key);
+      if(entry)entry.count++;
+      else map.set(key,{label:key==='missing'?'Unknown / no tag':musicFacetLabel(item,field),count:1});
+    }
+  }
+  return out;
+}
+function matchesMusicQuery(item,q,tags=[]){
+  const words=musicFold(q).split(/\s+/).filter(Boolean);
+  if(!words.length)return true;
+  const m=item.music||{},hay=musicFold([item.path,m.title,m.artist,m.album,m.albumArtist,m.genre,m.year,m.track,m.disc,...tags].filter(x=>x!=null).join(' '));
+  return words.every(word=>hay.includes(word));
+}
+function compareMusicValue(a,b,direction=1){
+  const missing=v=>v===null||v===undefined||v===''||typeof v==='number'&&!Number.isFinite(v);
+  const ma=missing(a),mb=missing(b);if(ma||mb)return ma===mb?0:ma?1:-1;
+  return direction*(typeof a==='number'&&typeof b==='number'?a-b:musicCollator.compare(String(a),String(b)));
+}
+function musicTrackNumber(value){const m=String(value??'').match(/^\s*(\d+)/);return m?Number(m[1]):null}
+function musicSortValue(item,field){
+  const m=item.music||{};
+  if(field==='title')return m.title||item.name.replace(/\.[^.]+$/,'');
+  if(field==='year')return musicYear(m.year);
+  if(field==='duration')return Number.isFinite(m.duration)&&m.duration>0?m.duration:null;
+  if(field==='format')return item.path.split('.').at(-1).toLowerCase();
+  if(field==='name')return item.name;
+  if(field==='path')return item.path;
+  return m[field];
+}
+function sortMusicResults(items,field,direction=1,collectionOrder=null){
+  if(field==='auto'){
+    if(collectionOrder){const rank=new Map([...collectionOrder].map((p,i)=>[p,i]));items.sort((a,b)=>(rank.get(a.path)??Infinity)-(rank.get(b.path)??Infinity))}
+    return items;
+  }
+  return items.sort((a,b)=>{
+    let result=compareMusicValue(musicSortValue(a,field),musicSortValue(b,field),direction);
+    if(!result&&(field==='album'||field==='artist')){
+      if(field==='artist')result=compareMusicValue(a.music?.album,b.music?.album,direction);
+      else result=compareMusicValue(a.music?.albumArtist||a.music?.artist,b.music?.albumArtist||b.music?.artist,1);
+      if(!result)result=compareMusicValue(musicTrackNumber(a.music?.disc)??1,musicTrackNumber(b.music?.disc)??1,1);
+      if(!result)result=compareMusicValue(musicTrackNumber(a.music?.track),musicTrackNumber(b.music?.track),1);
+    }
+    if(!result)result=compareMusicValue(musicSortValue(a,'title'),musicSortValue(b,'title'),1);
+    return result||musicCollator.compare(a.path,b.path)||(a.path<b.path?-1:a.path>b.path?1:0);
+  });
+}
+/* END MUSIC FILTER LOGIC */
 let musicIndexRun=0,musicSearchTimer=null;
+
+const musicFacetIds={artist:'musicArtist',album:'musicAlbum',genre:'musicGenre',year:'musicYear'};
+const musicFacetDefaults={artist:'All artists',album:'All albums',genre:'All genres',year:'All years'};
+const MUSIC_SORT_KEY='freedom-music-sort:'+GALLERY_URL;
+let musicSortDirection=1,musicIndexCompleted=0,musicIndexTotal=0,musicIndexing=false;
+function readMusicFacets(){return {...Object.fromEntries(MUSIC_FACETS.map(f=>[f,el(musicFacetIds[f]).value])),duration:el('musicLength').value}}
+function refreshMusicFacetOptions(base,facets){
+  const maps=buildMusicFacets(base,facets);
+  for(const field of MUSIC_FACETS){
+    const select=el(musicFacetIds[field]),old=facets[field],values=maps[field],options=[new Option(musicFacetDefaults[field],'')];
+    const entries=[...values].sort(([ka,a],[kb,b])=>ka==='missing'?1:kb==='missing'?-1:musicCollator.compare(a.label,b.label));
+    for(const [key,entry] of entries)options.push(new Option(entry.label+' ('+entry.count+')',key));
+    if(old&&!values.has(old)){
+      const oldLabel=select.selectedOptions[0]?.textContent.replace(/ \(\d+\)$/,'')||old.replace(/^v:/,'');
+      options.push(new Option(oldLabel+' (0)',old));
+    }
+    const signature=options.map(o=>o.value+'\u0001'+o.text).join('\u0002');
+    if(select.dataset.signature!==signature){select.replaceChildren(...options);select.dataset.signature=signature}
+    select.value=old;
+  }
+}
+function updateMusicFilterStatus(){
+  el('musicIndexProgress').textContent=!root?'Open a music library':musicIndexing?'Reading metadata: '+musicIndexCompleted.toLocaleString()+' / '+musicIndexTotal.toLocaleString():musicIndexTotal.toLocaleString()+' tracks checked';
+  const facets=readMusicFacets(),active=Object.values(facets).filter(Boolean).length;
+  const filterCount=active+Number(!!el('query').value.trim())+Number(!!el('kind').value)+Number(!!el('folder').value);
+  el('musicFilterSummary').textContent=active?'Metadata filters: '+active+' · combined with search, format, folder and collection filters using AND.':'';
+  el('musicFilterReset').disabled=!root||!filterCount;
+  for(const id of [...Object.values(musicFacetIds),'musicLength','musicSort'])el(id).disabled=!root;
+  el('musicSortDirection').disabled=!root||el('musicSort').value==='auto';
+  el('musicSortDirection').textContent=musicSortDirection===1?'↑ Asc':'↓ Desc';
+  el('musicSortDirection').setAttribute('aria-label',musicSortDirection===1?'Sort ascending':'Sort descending');
+}
+function scheduleMusicFilterRefresh(){
+  if(musicSearchTimer)return;const activeRoot=root,run=musicIndexRun;
+  musicSearchTimer=setTimeout(()=>{musicSearchTimer=null;if(root===activeRoot&&run===musicIndexRun)filterAndRender()},500);
+}
+function resetMusicFacets(){
+  for(const id of [...Object.values(musicFacetIds),'musicLength'])el(id).value='';
+}
+function rememberMusicSort(){try{localStorage.setItem(MUSIC_SORT_KEY,JSON.stringify({field:el('musicSort').value,direction:musicSortDirection}))}catch(_){}}
+function initMusicFilters(){
+  try{const pref=JSON.parse(localStorage.getItem(MUSIC_SORT_KEY)||'null');if(pref&&MUSIC_SORT_FIELDS.includes(pref.field)){el('musicSort').value=pref.field;musicSortDirection=pref.direction===-1?-1:1}}catch(_){}
+  const changed=()=>{clearSelection();visibleCount=80;filterAndRender()};
+  for(const id of [...Object.values(musicFacetIds),'musicLength'])el(id).onchange=changed;
+  el('musicSort').onchange=()=>{rememberMusicSort();changed()};
+  el('musicSortDirection').onclick=()=>{musicSortDirection*=-1;rememberMusicSort();changed()};
+  el('musicFilterReset').onclick=()=>{resetMusicFacets();el('query').value='';el('kind').value='';el('folder').value='';changed()};
+  updateMusicFilterStatus();
+}
+
 const musicCardsByPath=new Map();
 function musicTitle(item){return item.music?.title||item.name.replace(/\.[^.]+$/,'')}
 function musicDuration(n){if(!Number.isFinite(n))return '';const s=Math.round(n);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
@@ -1880,23 +2030,28 @@ function loadTrackMetadata(item,file){
     try{if(root!==activeRoot||byPath.get(item.path)!==item)return {};
       const source=file||await itemFile(item),m=await readAudioMetadata(source);
       if(root!==activeRoot||byPath.get(item.path)!==item)return m;
-      item.music={...m,...(item.music?.duration?{duration:item.music.duration}:{})};refreshMusicCaption(item);
-      if(el('query').value.trim()&&!musicSearchTimer)musicSearchTimer=setTimeout(()=>{musicSearchTimer=null;if(root===activeRoot)filterAndRender()},300);
+      item.music={...m,...(item.music?.duration?{duration:item.music.duration}:{})};item.musicReady=true;refreshMusicCaption(item);scheduleMusicFilterRefresh();
       return item.music;
-    }catch(_){return item.music||{}}
+    }catch(_){if(root===activeRoot&&byPath.get(item.path)===item){item.musicReady=true;scheduleMusicFilterRefresh()}return item.music||{}}
   })();return item.musicPromise;
 }
 function startMusicIndex(items){
   clearTimeout(musicSearchTimer);musicSearchTimer=null;
   const run=++musicIndexRun,activeRoot=root;let i=0;
+  musicIndexTotal=items.length;musicIndexCompleted=0;musicIndexing=!!items.length;updateMusicFilterStatus();
   async function worker(){
     while(run===musicIndexRun&&root===activeRoot&&i<items.length){
       const item=items[i++];if(byPath.get(item.path)!==item)return;
       await loadTrackMetadata(item);
-      if(i%32===0)await new Promise(r=>setTimeout(r,0));
+      if(run!==musicIndexRun||root!==activeRoot)return;
+      musicIndexCompleted++;
+      if(musicIndexCompleted%32===0){updateMusicFilterStatus();await new Promise(r=>setTimeout(r,0))}
     }
   }
-  for(let j=0;j<3;j++)void worker();
+  void Promise.all([worker(),worker(),worker()]).then(()=>{
+    if(run!==musicIndexRun||root!==activeRoot)return;
+    clearTimeout(musicSearchTimer);musicSearchTimer=null;musicIndexing=false;filterAndRender();
+  });
 }
 
 /* BEGIN MUSIC PLAYER LOGIC */
@@ -2053,7 +2208,7 @@ function initMusicPlayer(){
   playerAudio.addEventListener('volumechange',applyPlayerVolume);
   for(const event of ['play','pause','ended','loadedmetadata','durationchange','emptied','error'])playerAudio.addEventListener(event,()=>{updatePlayerControls();updatePlayerTime()});
   playerAudio.addEventListener('timeupdate',()=>{updatePlayerTime();el('playerPrev').disabled=!playerPath||(!nextPlayerPath(-1)&&playerAudio.currentTime<3)});
-  playerAudio.addEventListener('loadedmetadata',()=>{const item=byPath.get(playerPath),n=playerAudio.duration;if(item&&Number.isFinite(n)&&n>0){item.music={...item.music,duration:n};refreshMusicCaption(item)}});
+  playerAudio.addEventListener('loadedmetadata',()=>{const item=byPath.get(playerPath),n=playerAudio.duration;if(item&&Number.isFinite(n)&&n>0){item.music={...item.music,duration:n};refreshMusicCaption(item);scheduleMusicFilterRefresh()}});
   playerAudio.addEventListener('playing',recordListening);
   playerAudio.addEventListener('ended',()=>{if(playerRepeat==='one'&&playerEligible(playerPath)){playerAudio.currentTime=0;void resumePlayer();return}const next=nextPlayerPath(1);if(next===playerPath&&next){playerAudio.currentTime=0;void resumePlayer()}else if(next)void startTrack(next,false)});
   playerAudio.addEventListener('error',()=>{if(playerPath&&playerURL)toast('This browser cannot play this audio format or codec. The original file is unchanged.')});
@@ -2447,7 +2602,8 @@ async function activateLibrary(picked){
   scanNo++;clearTimeout(fileInfoTimer);if(el('viewer').open)closeViewer();stopMusic();playerRepeat='off';queueChanged();clearThumbs();
   clearSelection();lastUndo=null;root=picked;configuredRootPath='';dirCache=new Map([['',picked]]);images=[];byPath.clear();
   el('libraryName').textContent=picked.name;el('libraryName').title=picked.name;activeView={type:'all'};visibleCount=80;
-  el('folder').value='';el('kind').value='';el('query').value='';setStatus('Loading metadata…');
+  el('folder').value='';el('kind').value='';el('query').value='';resetMusicFacets();
+  ++musicIndexRun;clearTimeout(musicSearchTimer);musicSearchTimer=null;musicIndexCompleted=musicIndexTotal=0;musicIndexing=false;updateMusicFilterStatus();setStatus('Loading metadata…');
   await loadMetadata();await loadMusicCollections();await loadFullPathConfig();await autoConfigureFullPath();await loadThumbManifest();await loadFileInfo();
   if(!await loadIndex())await scan();
   else if(!fileInfo.size)updateMaintenance();
@@ -2587,12 +2743,12 @@ async function removeCollection(){
 
 function renderAlbumSelector(){const s=el('albumSelect'),old=s.value;s.replaceChildren(new Option('Choose album',''));for(const name of [...albums.keys()].sort((a,b)=>a.localeCompare(b,'cs')))s.add(new Option(name,name));if(albums.has(old))s.value=old;updateAlbumButton()}
 function filterAndRender(){
-  const q=el('query').value.trim().toLocaleLowerCase('cs'),folder=el('folder').value,kind=el('kind').value;
+  const q=el('query').value.trim(),folder=el('folder').value,kind=el('kind').value,facets=readMusicFacets();
   const albumSets=[...selectedAlbumNames].filter(name=>albums.has(name)).map(name=>albums.get(name));
   const tagKeys=[...selectedTagKeys],specials=[...selectedSpecialViews];
   const anyCriteria=albumSets.length>0||tagKeys.length>0||specials.length>0;
   const globalScope=anyCriteria&&!folderLocked;
-  filtered=images.filter(item=>{
+  const base=images.filter(item=>{
     const path=item.path,discarded=trash.has(path);
     // Ordinary collections never reveal hidden originals. Trash is considered only
     // when explicitly chosen, including in mixed AND/OR expressions.
@@ -2609,11 +2765,14 @@ function filterAndRender(){
     }
     if(kind&&audioFormat(path)!==kind)return false;
     if(!globalScope&&folder&&!path.startsWith(folder+'/'))return false;
-    if(q&&![path,...Object.values(item.music||{}),...(tags.get(path)||[])].some(t=>String(t).toLocaleLowerCase('cs').includes(q)))return false;
+    if(q&&!matchesMusicQuery(item,q,tags.get(path)||[]))return false;
     return true;
   });
-  if(albumSets.length===1&&tagKeys.length===0&&specials.length===0){const order=new Map([...albumSets[0]].map((p,i)=>[p,i]));filtered.sort((a,b)=>order.get(a.path)-order.get(b.path))}
-  navButtonActive();renderCards();
+  refreshMusicFacetOptions(base,facets);
+  filtered=base.filter(item=>matchesMusicFacets(item,facets));
+  const order=albumSets.length===1&&tagKeys.length===0&&specials.length===0?albumSets[0]:null;
+  sortMusicResults(filtered,el('musicSort').value,musicSortDirection,order);
+  navButtonActive();renderCards();updateMusicFilterStatus();
 }
 function renderCards(){
   if(observer)observer.disconnect();const host=el('gallery');host.replaceChildren();musicCardsByPath.clear();
@@ -3883,7 +4042,7 @@ mediaDialog.addEventListener('pointerdown',e=>{ dismissPointerStartedOnBackgroun
 mediaDialog.addEventListener('click',e=>{ const backgroundClick=e.target===mediaStage||hitViewerBackdrop(e); if(dismissPointerStartedOnBackground&&backgroundClick) closeViewer(); dismissPointerStartedOnBackground=false; });
 mediaDialog.addEventListener('pointercancel',()=>{dismissPointerStartedOnBackground=false}); mediaDialog.addEventListener('close',()=>{dismissPointerStartedOnBackground=false});
 el('prev').onclick=()=>moveViewer(-1); el('next').onclick=()=>moveViewer(1);
-initMusicPlayer();initMusicCollections();
+initMusicPlayer();initMusicCollections();initMusicFilters();
 document.addEventListener('keydown',e=>{
   const editing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||document.activeElement?.isContentEditable;
   if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='z'&&!editing){
@@ -3909,7 +4068,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape' && selectedPaths.size){ clearSelection(); return; }
   if(e.key==='/'&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)){ e.preventDefault(); el('query').focus(); }
 });
-document.addEventListener('click',e=>{ if(selectedPaths.size && !dragClickPending() && !e.target.closest('.photo,.nav-btn,.collection-action,.collection-tab,.tag-chip,.results-toolbar button,.selection-toolbar,.filters,.viewer,.dialog-body,.top,#musicPlayer,#musicQueueDialog,aside input,aside select,main input,main select')) clearSelection(); });
+document.addEventListener('click',e=>{ if(selectedPaths.size && !dragClickPending() && !e.target.closest('.photo,.nav-btn,.collection-action,.collection-tab,.tag-chip,.results-toolbar button,.selection-toolbar,.music-filter-panel,.filters,.viewer,.dialog-body,.top,#musicPlayer,#musicQueueDialog,aside input,aside select,main input,main select')) clearSelection(); });
 
 /* Mouse marquee: can begin from any non-control area of <main>, not just grid cells. */
 let viewportMarquee=null;
@@ -3922,7 +4081,7 @@ function selectionRect(x1,y1,x2,y2){
 }
 function startMainMarquee(event){
   if(event.button!==0||event.pointerType!=='mouse'||!root||!filtered.length||el('viewer').open)return;
-  if(event.target.closest('input,select,textarea,button,a,label,.top,#musicPlayer,aside,.filters,.results-toolbar button,.selection-toolbar,#loadMore,dialog'))return;
+  if(event.target.closest('input,select,textarea,button,a,label,.top,#musicPlayer,aside,.music-filter-panel,.filters,.results-toolbar button,.selection-toolbar,#loadMore,dialog'))return;
   // Permit starting in the entire gallery column, including blank space below
   // <main> (which otherwise is not a hit-testable DOM child when the page is short).
   const main=el('gallery').closest('main'),bounds=main.getBoundingClientRect();
