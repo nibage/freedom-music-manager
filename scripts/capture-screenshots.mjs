@@ -198,14 +198,23 @@ try {
   const badge=await page.locator('#bulkQueue').boundingBox(),queueAfterHover=await page.locator('#playerQueueButton').boundingBox();
   if(!badge||!queueBeforeHover||!queueAfterHover||badge.x<queueAfterHover.x+queueAfterHover.width/2||badge.x+badge.width>queueAfterHover.x+queueAfterHover.width||badge.y<queueAfterHover.y||badge.y+badge.height>queueAfterHover.y+queueAfterHover.height)throw Error('Queue membership badge is not inside the right edge');
   if(JSON.stringify(queueBeforeHover)!==JSON.stringify(queueAfterHover))throw Error('Queue button moved on hover');
+  const beforeMembership=await page.evaluate(()=>playerQueue.slice());
+  const membershipMode=await page.locator('#bulkQueue').textContent();
   await page.locator('#bulkQueue').click();
+  const afterMembership=await page.evaluate(()=>playerQueue.slice());
+  if(membershipMode==='−'?afterMembership.length!==beforeMembership.length-1:afterMembership.length!==beforeMembership.length+1)throw Error('Queue membership click did not change membership');
   if(await page.locator('#musicQueueDialog').isVisible())throw Error('Membership action opened queue dialog');
   await page.locator('#playerQueueButton').click();
+  await page.locator('#queueClear').click();
+  await page.waitForFunction(()=>!playerQueue.length&&!selectedPaths.size&&!playerPath&&playerAudio.paused);
   await page.locator('#queueAddResults').click();
+  await page.waitForFunction(()=>playerQueue.length===9);
+  await page.locator('#queueAppendResults').click();
+  await page.waitForFunction(()=>playerQueue.length===9);
   await page.locator('#queueCollectionNew').click();
   await page.locator('#collectionDialogInput').fill('CI demo collection');
   await page.locator('#collectionDialogAccept').click();
-  await page.waitForFunction(() => albums.get('CI demo collection')?.size === 9);
+  await page.waitForFunction(() => albums.get('CI demo collection')?.size === 9&&JSON.stringify([...albums.get('CI demo collection')])===JSON.stringify(playerQueue));
   await page.waitForFunction(() => !pendingSaves);
   const queueBounds=await page.locator('#musicQueueDialog').boundingBox();
   await page.locator('#queueList .queue-row').first().locator('.queue-track-label').click();
@@ -235,7 +244,7 @@ try {
   await page.waitForFunction(()=>{
     const panel=document.getElementById('musicFilters');
     const controls=[...panel.querySelectorAll('select,button')];
-    return controls.length===8&&controls.every(e=>Math.abs(e.getBoundingClientRect().top-controls[0].getBoundingClientRect().top)<2)
+    return controls.length===9&&controls.every(e=>Math.abs(e.getBoundingClientRect().top-controls[0].getBoundingClientRect().top)<2)
       &&document.getElementById('musicIndexProgress').hidden&&document.getElementById('musicFilterSummary').hidden;
   });
   if(!decodeURIComponent(await page.locator('link[rel="icon"]').getAttribute('href')).includes('M38 13v25.5'))throw Error('Music favicon missing');

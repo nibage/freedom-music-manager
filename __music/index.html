@@ -1129,6 +1129,7 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
 /* Reserve stable geometry for filters and transport; membership is a separate hit target. */
 .shell > main{padding-top:0!important}
 #musicFilters{margin-top:0;overflow-anchor:none}
+@media(min-width:841px){.shell>main{align-self:stretch}#musicFilters{margin-bottom:8px}}
 #queuePlay{width:91px;min-width:91px;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
 #queuePlayIcon{display:inline-block;width:12px;height:14px;flex:0 0 12px;background:currentColor;clip-path:polygon(0 0,100% 50%,0 100%)}
 #queuePlay[aria-label="Pause"] #queuePlayIcon{clip-path:none;background:linear-gradient(to right,currentColor 0 4px,transparent 4px 8px,currentColor 8px 12px)}
@@ -2780,7 +2781,7 @@ function queueTrackLabel(path,sub=''){
   box.textContent=item?musicTitle(item):path.split('/').at(-1);box.title=path;
   const small=document.createElement('small');small.textContent=[item?.music?.artist,item?.music?.album,sub,!item?'Missing file':trash.has(path)?'In Trash':''].filter(Boolean).join(' · ');box.append(small);return box;
 }
-// Add missing selected tracks, or remove all selected queued tracks; protect the playback anchor.
+// Add missing selected tracks, or remove all selected queued tracks (including current audio).
 function queueMembershipAction(paths,queue,current,eligible){
   const selected=[...new Set(paths)].filter(eligible);
   const mode=selected.length&&selected.every(p=>queue.includes(p))?'remove':'add';
@@ -2988,7 +2989,7 @@ function initMusicCollections(){
   el('queuePagePrev').onclick=()=>{if(queuePanel==='history')historyPage--;else queuePage--;renderQueue()};
   el('queuePageNext').onclick=()=>{if(queuePanel==='history')historyPage++;else queuePage++;renderQueue()};
   el('playerShuffle').onclick=toggleShuffle;el('playerRepeat').onclick=cycleRepeat;
-  const selected=()=>filtered.filter(x=>selectedPaths.has(x.path)).map(x=>x.path);
+  const selected=()=>selectedPlaybackPaths();
   el('bulkQueue').onclick=toggleSelectedQueueMembership;
   el('bulkPlayNext').onclick=()=>addMusicQueue(selected(),true);
   el('viewerQueueButton').onclick=openMusicQueue;el('viewerQueueTrack').onclick=toggleViewerQueueMembership;
@@ -4383,7 +4384,7 @@ function renderTagList(){
   const empty=el('tagEmpty');empty.hidden=collectionMode!=='tags'||!!matches.length;
   empty.textContent=groups.length?(search?'No matching tags.':'No tags.'):'No tags on indexed media yet.';
   if(matches.length>500){const note=document.createElement('p');note.className='help';note.textContent=`Showing 500 of ${matches.length} tags; search to find others.`;list.append(note)}
-  navButtonActive();
+  navButtonActive();renderPlaylistOptions();
 }
 function renderAlbumList(){
   const host=el('albumList'),search=el('collectionQuery').value.trim().toLocaleLowerCase('cs');host.replaceChildren();

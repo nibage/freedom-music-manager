@@ -40,3 +40,18 @@ test('fixed size dialog and hover badge markup',()=>{
   assert.doesNotMatch(footer,/>＋ Queue<\/button>/);
   assert.doesNotThrow(()=>new Function(js));
 });
+
+test('hover rule overrides the hidden badge and enables its independent hit target',()=>{
+  assert.match(html,/#musicPlayer #bulkQueue,#viewerPlayer #viewerQueueTrack\{display:inline-flex!important;[^}]*visibility:hidden;pointer-events:none/);
+  assert.match(html,/#musicPlayer \.player-queue-control:hover #bulkQueue:not\(:disabled\)[^{]*\{visibility:visible;pointer-events:auto\}/);
+});
+test('queue toolbar, collection manager and preview have the requested controls',()=>{
+  assert.match(html,/id="queuePlay"[\s\S]*?id="queueClear"[\s\S]*?id="queueAddResults"[\s\S]*?id="queueAppendResults"[\s\S]*?id="historyClear"[\s\S]*?id="queueList"/);
+  assert.match(html,/#queuePlay\{width:91px;min-width:91px/);
+  assert.match(html,/#queuePlay\[aria-label="Pause"\] #queuePlayIcon\{clip-path:none;background:linear-gradient/);
+  assert.match(html,/id="queueCollections"[\s\S]*?id="queueTags"[\s\S]*?id="queueCollectionNew"[\s\S]*?id="queueCollectionRemove"/);
+  assert.doesNotMatch(html,/id="playlist(?:Delete|Name|Save)"/);
+  assert.match(html,/#viewerPlayer\{grid-column:1;grid-row:2/);
+  assert.doesNotMatch(html,/id="viewerPlayer(?:Title|Artist)"/);
+  assert.match(js,/el\('queueClear'\)\.onclick=\(\)=>\{stopMusic\(\);clearSelection\(\)/);
+});
