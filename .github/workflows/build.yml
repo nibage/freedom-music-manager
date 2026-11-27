@@ -40,6 +40,8 @@ jobs:
           set -euo pipefail
           VERSION=v1.0.0-rc.3
           if [[ "$GITHUB_REF_TYPE" == tag ]]; then VERSION="$GITHUB_REF_NAME"; fi
+          # Preserve the small deterministic integration fixture, then extend the packaged demo.
+          python3 scripts/generate_music_demo.py demo-music --extend --count 2009
           python3 scripts/build_music_release.py "$VERSION"
           cd dist
           sha256sum -c SHA256SUMS.txt

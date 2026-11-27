@@ -68,6 +68,70 @@ def cover(path, seed):
     path.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', n,n,8,2,0,0,0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b''))
 
 
+def append_bulk(root, count, manifest, temp):
+    # Reuse eight short original audio signals, but give each track unique metadata.
+    # This keeps generation fast, even for thousands of real playable files.
+    signals = []
+    if count > len(manifest):
+        for i in range(8):
+            source = Path(temp)/f'bulk-{i}.wav'
+            write_wave(source, 1, 180 + i * 30, {})
+            signals.append(source.read_bytes())
+    for i in range(count - len(manifest)):
+        album_index, number = divmod(i, 50)
+        artist = f'Stress Artist {album_index // 4 + 1:03d}'
+        album = f'Stress Album {album_index + 1:03d}'
+        title = f'Stress Track {i + 1:05d}'
+        folder = root / 'Stress test' / artist / album
+        folder.mkdir(parents=True, exist_ok=True)
+        if number == 0:
+            cover(folder/'cover.png', album_index + 11)
+        tags = {'title': title, 'artist': artist, 'album': album,
+                'genre': ['Ambient', 'Electronic', 'Instrumental', 'Rock'][album_index % 4],
+                'date': str(2020 + album_index % 7), 'track': str(number + 1)}
+        dest = folder / f'{number + 1:02d} - {title}.wav'
+        dest.write_bytes(wave_with_tags(signals[i % len(signals)], tags))
+        manifest.append({'path': dest.relative_to(root).as_posix(), 'tags': tags, 'duration_seconds': 1, 'format': 'wav'})
+
+def extend_demo(root, count):
+    """Add stress fixtures to the original nine-track demo, never overwrite audio."""
+    manifest_path = root / 'expected-metadata.json'
+    if not manifest_path.is_file() or manifest_path.is_symlink() or root.is_symlink():
+        raise ValueError('Expected an existing generated demo-music directory')
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    if len(manifest) == count and count > len(TRACKS):
+        if all((root / entry['path']).is_file() for entry in manifest):
+            print(f'Demo already contains {count} tracks in {root}')
+            return
+    if len(manifest) != len(TRACKS) or count <= len(TRACKS):
+        raise ValueError('Extension requires the original nine-track demo and a larger count')
+    expected = {(artist, album, f'{number:02d} - {title}' if number is not None else title)
+                for artist, album, title, _, _, number, _, _, _ in TRACKS}
+    actual = set()
+    for entry in manifest:
+        rel = Path(entry['path'])
+        if rel.is_absolute() or '..' in rel.parts or len(rel.parts) != 3 or not (root / rel).is_file():
+            raise ValueError('Invalid or missing original demo track: ' + str(rel))
+        actual.add((rel.parts[0], rel.parts[1], rel.stem))
+    if actual != expected:
+        raise ValueError('This is not the original generated demo library')
+    if (root / 'Stress test').exists() or (root / 'Stress test').is_symlink():
+        raise FileExistsError('Stress test folder already exists; refusing to overwrite it')
+    # Stage files in the same filesystem; preserve the original manifest until all media exist.
+    with tempfile.TemporaryDirectory(dir=root) as temp:
+        staging = Path(temp)
+        append_bulk(staging, count, manifest, temp)
+        updated = staging / 'expected-metadata.json'
+        updated.write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+        (staging / 'Stress test').rename(root / 'Stress test')
+        try:
+            updated.replace(manifest_path)
+        except OSError:
+            (root / 'Stress test').rename(staging / 'Stress test')
+            raise
+    print(f'Extended {root} to {len(manifest)} tracks')
+
+
 def generate(root, count=9):
     if count < len(TRACKS):
         raise ValueError(f'count must be at least {len(TRACKS)}')
@@ -101,29 +165,7 @@ def generate(root, count=9):
                     dest = dest.with_suffix('.wav')
                     shutil.copyfile(source, dest)
             manifest.append({'path': dest.relative_to(root).as_posix(), 'tags': tags, 'duration_seconds': duration, 'format': dest.suffix[1:]})
-        # Reuse eight short original audio signals, but give each track unique metadata.
-        # This keeps generation fast, even for thousands of real playable files.
-        signals = []
-        if count > len(TRACKS):
-            for i in range(8):
-                source = Path(temp)/f'bulk-{i}.wav'
-                write_wave(source, 1, 180 + i * 30, {})
-                signals.append(source.read_bytes())
-        for i in range(count - len(TRACKS)):
-            album_index, number = divmod(i, 50)
-            artist = f'Stress Artist {album_index // 4 + 1:03d}'
-            album = f'Stress Album {album_index + 1:03d}'
-            title = f'Stress Track {i + 1:05d}'
-            folder = root / 'Stress test' / artist / album
-            folder.mkdir(parents=True, exist_ok=True)
-            if number == 0:
-                cover(folder/'cover.png', album_index + 11)
-            tags = {'title': title, 'artist': artist, 'album': album,
-                    'genre': ['Ambient', 'Electronic', 'Instrumental', 'Rock'][album_index % 4],
-                    'date': str(2020 + album_index % 7), 'track': str(number + 1)}
-            dest = folder / f'{number + 1:02d} - {title}.wav'
-            dest.write_bytes(wave_with_tags(signals[i % len(signals)], tags))
-            manifest.append({'path': dest.relative_to(root).as_posix(), 'tags': tags, 'duration_seconds': 1, 'format': 'wav'})
+        append_bulk(root, count, manifest, temp)
     (root/'expected-metadata.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
     (root/'README.txt').write_text('Synthetic demo tracks, generated locally. No commercial recordings.\nSelect this directory in Freedom Music Manager. expected-metadata.json describes the expected tags. Untitled has no embedded tags or cover.\n', encoding='utf-8')
     print(f'Created {len(manifest)} tracks in {root}: '+', '.join(sorted({t['format'] for t in manifest})))
@@ -133,7 +175,11 @@ if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('directory', nargs='?', type=Path, default=Path('demo-music'))
     p.add_argument('--count', type=int, default=len(TRACKS), help='Total number of tracks (default: 9); extras are short tagged WAVs')
+    p.add_argument('--extend', action='store_true', help='Add stress tracks to an existing original nine-track demo')
     args = p.parse_args()
     if args.count < len(TRACKS):
         p.error(f'--count must be at least {len(TRACKS)}')
-    generate(args.directory, args.count)
+    if args.extend:
+        extend_demo(args.directory, args.count)
+    else:
+        generate(args.directory, args.count)

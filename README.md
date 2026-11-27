@@ -20,7 +20,7 @@ Music/
 └── __music/index.html
 ```
 
-The demo ZIP contains nine synthetic tracks in WAV, MP3, FLAC, Ogg Vorbis, M4A and Opus with known metadata, three original sidecar covers, and an untagged track. Select the included `demo-music` directory instead of your own library. No commercial recordings are included.
+The demo ZIP contains 2,009 synthetic tracks (the original nine plus 2,000 stress-test WAVs). The original nine tracks are in WAV, MP3, FLAC, Ogg Vorbis, M4A and Opus with known metadata, three original sidecar covers, and an untagged track. Select the included `demo-music` directory instead of your own library. No commercial recordings are included.
 
 ## Features
 
@@ -61,6 +61,8 @@ Older `__gallery/data/` metadata can be copied to the new layout with confirmati
 python3 scripts/generate_music_demo.py demo-music
 # Optional stress-test library (2,000 real tracks, generated in a new directory):
 python3 scripts/generate_music_demo.py demo-music-large --count 2000
+# Add all 2,000 stress tracks directly to an existing original demo-music folder:
+python3 scripts/generate_music_demo.py demo-music --extend --count 2009
 node --test tests/music-*.test.mjs tests/unified-music-collections.test.mjs
 npm install --no-save --no-package-lock playwright@1.56.1
 npx playwright install chromium
@@ -77,3 +79,5 @@ The optional large demo uses short tagged WAV files grouped into artists/albums 
 ### Remembered view and search scope
 
 Each remembered library restores its own last folder, search, format, album/collection/tag/Favorites/Trash combination, OFF/OR/AND mode and folder lock, music metadata filters and sorting. The sidebar mode and search are also remembered. Clear cache removes saved views; removing a remembered library forgets its view. An unlocked folder still scopes ordinary browsing, but a non-empty search or selected collection criterion searches the whole library (other filters remain active). Lock folder limits all results to that folder and its descendants. Space in an open track preview controls playback just like its Play button.
+
+After extending an existing demo library, use Rebuild index in the application to discover the new tracks. The default generator and browser integration tests still use nine tracks; release packaging extends the demo to 2,009 tracks. Generated audio is not tracked by Git.

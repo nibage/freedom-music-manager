@@ -22,8 +22,8 @@ def build(version, demo):
         if path.is_file() and (ROOT/'docs'/'screenshots'/'music-capture.ok').is_file():
             app['docs/screenshots/'+name] = path
     manifest = json.loads((demo/'expected-metadata.json').read_text(encoding='utf-8'))
-    if len(manifest) != 9:
-        raise ValueError('Expected nine synthetic tracks')
+    if len(manifest) < 9:
+        raise ValueError('Expected at least nine synthetic tracks')
     media = {}
     formats = set()
     for entry in manifest:
