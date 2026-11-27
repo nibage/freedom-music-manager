@@ -224,7 +224,12 @@ try {
   const queueBounds=await page.locator('#musicQueueDialog').boundingBox();
   const queueListHeight=(await page.locator('#queueList').boundingBox()).height;
   await page.locator('#queueList .queue-row').first().locator('.queue-track-label').click();
-  if(await page.locator('#queueList .queue-row.is-selected').count())throw Error('Queue row must not be selectable');
+  if(await page.locator('#queueList .queue-row.is-selected').count()!==1)throw Error('Queue row must be selectable');
+  await page.keyboard.press('Control+a');
+  await page.waitForFunction(()=>queueSelectedPaths.size===playerQueue.length&&!document.getElementById('queueRemoveSelected').hidden);
+  await page.locator('#queueRemoveSelected').click();
+  await page.waitForFunction(()=>!playerQueue.length&&!queueSelectedPaths.size);
+  await page.locator('#queueAddResults').click();
   const useWidth=(await page.locator('#playlistLoad').boundingBox()).width,appendWidth=(await page.locator('#playlistAppend').boundingBox()).width;
   await page.locator('#queueTags').click();
   if((await page.locator('#playlistLoad').boundingBox()).width!==useWidth||(await page.locator('#playlistAppend').boundingBox()).width!==appendWidth)throw Error('Collection action widths changed in Tags');

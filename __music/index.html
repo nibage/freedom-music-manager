@@ -574,7 +574,7 @@ body.show-selection-actions.has-selection .chip-action-label {z-index:5;pointer-
 /* v7.8.1: match the compact controls on the right side of the header.
    Native selects need smaller font + padding to fit completely within 38px. */
 .filters {align-items:center;}
-.top > .filters > :is(#query,#folder,#kind,#layoutToggle,#viewBack,.folder-lock) {
+.top > .filters > :is(#query,#folderControl,#kind,#layoutToggle,#viewBack,.folder-lock) {
   box-sizing:border-box;
   height:38px!important;
   min-height:38px!important;
@@ -658,7 +658,7 @@ body.show-selection-actions.has-selection .chip-action-label {z-index:5;pointer-
   background:transparent!important;
   border:0!important;
 }
-.top > .filters > #folder{
+.top > .filters > #folderControl{
   flex:0 1 254px;
   width:254px;
   min-width:145px;
@@ -720,7 +720,7 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
 }
 @media(max-width:990px){
   .top > .filters{flex-wrap:wrap;justify-content:flex-start;}
-  .top > .filters > #folder{flex:1 1 244px;width:auto;max-width:none;}
+  .top > .filters > #folderControl{flex:1 1 244px;width:auto;max-width:none;}
   .top > .filters > #kind{flex:0 1 120px;min-width:120px;max-width:120px;width:120px;}
   .top > .filters > #layoutToggle{flex:0 0 auto;}
 }
@@ -779,7 +779,7 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
     justify-content:flex-start;
     flex-wrap:nowrap;
   }
-  .top > .filters > #folder{
+  .top > .filters > #folderControl{
     flex:0 0 216px;
     width:216px;
     min-width:216px;
@@ -1165,16 +1165,32 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
 @media(max-width:1799px){
   .top-right .recent-chooser{width:180px;min-width:115px;max-width:180px;flex:0 1 180px}
 }
+/* Show the selected folder basename on the native select; keep full paths in its menu. */
+#folderControl{position:relative;padding:0!important;min-width:0}
+#folderControl #folder{display:block;width:100%;height:100%;min-width:0;min-height:0;max-width:none;padding:8px 30px 8px 10px;font-size:13px;border-radius:8px;color:var(--text);background:var(--control)}
+#folderLeaf{position:absolute;inset:1px 28px 1px 10px;display:block;line-height:36px;pointer-events:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);background:var(--control);font-size:13px}
+.top-left{display:grid;grid-template-columns:max-content minmax(0,1fr);grid-template-rows:auto auto;column-gap:8px;row-gap:2px;align-content:center;align-items:center}
+.top-left h1{grid-column:1;grid-row:1}
+.top-left #results{grid-column:2;grid-row:1}
+#headerRelativePath{grid-column:1/-1;grid-row:2;display:block;min-width:0;max-width:100%;font-size:10px;line-height:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html[data-theme="light"] #headerRelativePath{color:#f0e4e7}
+@media(min-width:1250px){.top-left{grid-template-columns:max-content max-content}}
+@media(max-width:680px){.top-left{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}.top-left #results{grid-column:1;grid-row:2}#headerRelativePath{grid-row:3}}
+#musicQueueDialog #queueList .queue-row{cursor:pointer;user-select:none}
+#queueList .queue-row.is-selected{background:var(--selection-bg, color-mix(in srgb,var(--ok) 15%,var(--panel)))}
+#queueRemoveSelected[hidden]{display:none!important}
+#queueRemoveSelected{white-space:nowrap}
+@media(max-width:620px){#queuePagination{flex-wrap:wrap}}
 </style>
 </head>
 <body>
 <header class="top">
   <div class="top-left">
-    <h1>♫ Freedom Music Manager</h1><span id="results" class="results-header" aria-live="polite">Choose a media library folder.</span><span class="small" id="libraryName" hidden aria-hidden="true">No library selected</span>
+    <h1>♫ Freedom Music Manager</h1><span id="results" class="results-header" aria-live="polite">Choose a media library folder.</span><span class="small" id="libraryName" hidden aria-hidden="true">No library selected</span><span id="headerRelativePath" title="Selected folder relative to the library">All folders</span>
   </div>
   <div class="filters">
     <input id="query" type="search" placeholder="Search… (/)" title="Search title, artist, album, genre, filename or tag; press / to focus" aria-label="Search media">
-    <select id="folder" aria-label="Filter by folder"><option value="">All folders</option></select>
+    <div id="folderControl"><select id="folder" aria-label="Filter by folder"><option value="">All folders</option></select><span id="folderLeaf" aria-hidden="true">All folders</span></div>
     <label class="folder-lock" id="folderLockLabel" title="Lock folder: keep the selected folder while browsing collections and tags. In OR mode, folder is temporarily ignored but remembered.">
       <input id="folderLock" type="checkbox" checked aria-label="Lock selected folder" />
       <span class="folder-lock-icons" aria-hidden="true"><span id="folderLockIcon">🔒</span><span>📁</span></span>
@@ -1304,9 +1320,9 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
   <div class="queue-body">
     <div class="queue-heading"><h2 id="musicQueueTitle">Queue &amp; music collections</h2><button class="btn" id="queueClose" type="button" aria-label="Close queue">✕</button></div>
     <div class="queue-actions"><button class="btn" id="queuePlay" type="button" aria-label="Play"><span id="queuePlayIcon" aria-hidden="true"></span><span id="queuePlayText">Play</span></button><button class="btn" id="queueClear" type="button">Clear queue</button><button class="btn" id="queueAddResults" type="button" title="Replace the queue with all playable tracks matching the current library filters">Use current results</button><button class="btn" id="queueAppendResults" type="button" title="Append all playable tracks matching the current library filters, without duplicates">Append current results</button><button class="btn" id="historyClear" type="button" hidden>Clear history</button><button class="btn" id="historyUseSelection" type="button" hidden disabled>Use selection as queue</button><button class="btn" id="historyAppendSelection" type="button" hidden disabled>Append selection to queue</button><span id="queueCount" class="small"></span><button class="btn" id="queueHistoryToggle" type="button" aria-pressed="false" aria-controls="queueList historyList" title="Show listening history">History</button></div>
-    <div id="queueList" class="queue-list" role="list" aria-label="Playback queue"></div>
+    <div id="queueList" class="queue-list" role="listbox" aria-multiselectable="true" aria-label="Playback queue" tabindex="0"></div>
     <div id="historyList" class="queue-list" role="listbox" aria-multiselectable="true" aria-label="Listening history" tabindex="0" hidden></div>
-    <div class="queue-actions" id="queuePagination"><button class="btn" id="queuePagePrev" type="button">Previous page</button><span id="queuePageLabel" class="small"></span><button class="btn" id="queuePageNext" type="button">Next page</button><div id="queueFeedback" role="status" aria-live="polite"></div></div>
+    <div class="queue-actions" id="queuePagination"><button class="btn" id="queuePagePrev" type="button">Previous page</button><span id="queuePageLabel" class="small"></span><button class="btn" id="queuePageNext" type="button">Next page</button><button class="btn" id="queueRemoveSelected" type="button" hidden>Remove from queue (0)</button><div id="queueFeedback" role="status" aria-live="polite"></div></div>
     <section id="queueCollectionPanel" aria-label="Queue collections and tags">
       <div id="queueCollectionControls">
         <div class="collection-switch" role="group" aria-label="Queue collection type"><button id="queueCollections" class="collection-tab active" type="button" aria-pressed="true">Collections</button><button id="queueTags" class="collection-tab" type="button" aria-pressed="false">Tags</button></div>
@@ -2467,7 +2483,7 @@ function remapMusicPaths(paths,moves){return [...new Set(paths.map(p=>moves.get(
 /* END MUSIC PLAYER LOGIC */
 let playerPath=null,playerQueue=[],playerURL=null,playerRequest=0,playerLoading=false,playerWantsPlay=false,playerSeekActive=false;
 let lastPlayerVolume=.75,playerPreviewPath=null,playerSelectionKey=null,playerOncePaths=null,selectionPlayPrompt=false;
-let playerRepeat='off',playerShuffle=false,playerOriginalOrder=[],playerHistory=[],musicCollectionsWritable=false,musicHistoryRequest=-1,queuePage=0,historyPage=0,queuePanel='queue',historySelectedEntries=new Set(),historySelectionAnchor=null,historyPlaybackSelection=null,queueCollectionMode='albums';
+let playerRepeat='off',playerShuffle=false,playerOriginalOrder=[],playerHistory=[],musicCollectionsWritable=false,musicHistoryRequest=-1,queuePage=0,historyPage=0,queuePanel='queue',historySelectedEntries=new Set(),historySelectionAnchor=null,historyPlaybackSelection=null,queueSelectedPaths=new Set(),queueSelectionAnchor=null,queueCollectionMode='albums';
 const playerAudio=el('bigVideo');
 const playerVolumeKey='freedom-music-volume:'+GALLERY_URL;
 const playerEligible=p=>byPath.has(p)&&!trash.has(p);
@@ -2530,7 +2546,7 @@ function releasePlayerSource(){
 function stopMusic(clear=true){
   if(playerOncePaths)playerPath=null;
   historyPlaybackSelection=null;playerOncePaths=null;playerSelectionKey=null;playerPreviewPath=null;++playerRequest;playerLoading=false;playerWantsPlay=false;playerSeekActive=false;releasePlayerSource();
-  if(clear){playerPath=null;playerQueue=[];resetQueueOrder()}
+  if(clear){playerPath=null;playerQueue=[];queueSelectedPaths.clear();queueSelectionAnchor=null;resetQueueOrder()}
   queueChanged();
   updatePlayerTrack();updatePlayerTime();
 }
@@ -2728,7 +2744,7 @@ function collectionNameForImport(name,paths,existing){
   }throw Error('Could not choose a safe imported collection name');
 }
 async function loadMusicCollections(){
-  playerHistory=[];musicCollectionsWritable=false;musicHistoryRequest=-1;queuePage=0;historyPage=0;queuePanel='queue';historySelectedEntries=new Set();historySelectionAnchor=null;historyPlaybackSelection=null;
+  playerHistory=[];musicCollectionsWritable=false;musicHistoryRequest=-1;queuePage=0;historyPage=0;queuePanel='queue';historySelectedEntries=new Set();historySelectionAnchor=null;historyPlaybackSelection=null;queueSelectedPaths.clear();queueSelectionAnchor=null;
   try{
     const dir=await getMetaDir(false);
     if(dir&&await hasFile(dir,MUSIC_HISTORY_FILE)){
@@ -2764,7 +2780,7 @@ function recordListening(){
   void saveMusicCollections();if(el('musicQueueDialog').open&&queuePanel==='history')renderHistory();
 }
 function resetQueueOrder(){playerShuffle=false;playerOriginalOrder=[]}
-function setPlayerQueue(paths){historyPlaybackSelection=null;playerOncePaths=null;playerSelectionKey=null;playerQueue=[...new Set(paths)];resetQueueOrder();queuePage=0;queueChanged()}
+function setPlayerQueue(paths){queueSelectedPaths.clear();queueSelectionAnchor=null;historyPlaybackSelection=null;playerOncePaths=null;playerSelectionKey=null;playerQueue=[...new Set(paths)];resetQueueOrder();queuePage=0;queueChanged()}
 function currentQueueSnapshot(path){
   playerQueue=snapshotTracks(filtered,path,playerEligible);queuePage=0;
   if(playerShuffle){playerOriginalOrder=playerQueue.slice();playerQueue=shuffleUpcoming(playerQueue,path)}else playerOriginalOrder=[];
@@ -2914,28 +2930,72 @@ function selectHistoryRow(row,entry){
   row.onclick=e=>selectHistoryEntry(entry,e);
   row.onkeydown=e=>{if(e.target===row&&(e.key==='Enter'||e.key===' ')){e.preventDefault();selectHistoryEntry(entry,e)}};
 }
+function updateQueueRemoveButton(){
+  const button=el('queueRemoveSelected'),count=queueSelectedPaths.size;
+  button.hidden=queuePanel==='history'||!count;button.textContent='Remove from queue ('+count+')';
+}
+function updateQueueRowSelection(){
+  for(const row of el('queueList').querySelectorAll('.queue-row')){
+    const selected=queueSelectedPaths.has(row.queuePath);row.classList.toggle('is-selected',selected);row.setAttribute('aria-selected',String(selected));
+  }
+  updateQueueRemoveButton();
+}
+function selectQueueEntry(path,event){
+  const additive=event.ctrlKey||event.metaKey;
+  if(event.shiftKey&&queueSelectionAnchor){
+    queueSelectedPaths=new Set([...(additive?queueSelectedPaths:[]),...historyRange(playerQueue,queueSelectionAnchor,path)]);
+  }else if(additive){
+    const next=new Set(queueSelectedPaths);if(next.has(path))next.delete(path);else next.add(path);queueSelectedPaths=next;queueSelectionAnchor=path;
+  }else{
+    queueSelectedPaths=new Set(queueSelectedPaths.size===1&&queueSelectedPaths.has(path)?[]:[path]);queueSelectionAnchor=path;
+  }
+  updateQueueRowSelection();
+}
+function selectQueueRow(row,path){
+  row.queuePath=path;row.tabIndex=0;
+  row.className+=(queueSelectedPaths.has(path)?' is-selected':'');row.setAttribute('aria-selected',String(queueSelectedPaths.has(path)));row.setAttribute('role','option');
+  row.onclick=e=>{if(!e.target.closest('button'))selectQueueEntry(path,e)};
+  row.onkeydown=e=>{if(e.target===row&&(e.key==='Enter'||e.key===' ')){e.preventDefault();selectQueueEntry(path,e)}};
+}
+function removeSelectedQueuePaths(){
+  const removed=new Set(playerQueue.filter(path=>queueSelectedPaths.has(path)));
+  if(!removed.size)return;
+  // Removing the currently playing track does not interrupt its audio; it is no longer in the queue.
+  playerQueue=playerQueue.filter(path=>!removed.has(path));queueSelectedPaths.clear();queueSelectionAnchor=null;
+  resetQueueOrder();queueChanged();queueNotice(removed.size+' track(s) removed from queue.');
+}
 function initHistorySelection(){
-  const host=el('historyList'),dialog=el('musicQueueDialog');let drag=null,suppressClick=false;
+  const dialog=el('musicQueueDialog');
+  for(const isHistory of [true,false]){
+  const host=el(isHistory?'historyList':'queueList');let drag=null,suppressClick=false;
+  const entryOf=row=>isHistory?row?.historyEntry:row?.queuePath;
+  const currentSelection=()=>isHistory?historySelectedEntries:queueSelectedPaths;
+  const entries=()=>isHistory?playerHistory:playerQueue;
   host.addEventListener('pointerdown',e=>{
     if(e.button!==0||!(e.ctrlKey||e.metaKey))return;
-    const row=e.target.closest('.queue-row');if(!row?.historyEntry)return;
-    drag={id:e.pointerId,x:e.clientX,y:e.clientY,entry:row.historyEntry,initial:new Set(historySelectedEntries),active:false};suppressClick=false;
+    if(e.target.closest('button'))return;
+    const entry=entryOf(e.target.closest('.queue-row'));if(!entry)return;
+    drag={id:e.pointerId,x:e.clientX,y:e.clientY,entry,initial:new Set(currentSelection()),active:false};suppressClick=false;
   });
   host.addEventListener('pointermove',e=>{
     if(!drag||drag.id!==e.pointerId)return;
     if(!drag.active&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<5)return;
     if(!drag.active){drag.active=true;host.setPointerCapture(e.pointerId)}
     e.preventDefault();
-    const row=document.elementFromPoint(e.clientX,e.clientY)?.closest('#historyList .queue-row');
-    if(!row?.historyEntry)return;
-    historySelectedEntries=new Set([...drag.initial,...historyRange(playerHistory,drag.entry,row.historyEntry)]);historySelectionAnchor=drag.entry;updateHistorySelectionUI();
+    const row=document.elementFromPoint(e.clientX,e.clientY)?.closest('.queue-row');
+    if(!row||!host.contains(row))return;
+    const entry=entryOf(row);if(!entry)return;
+    const next=new Set([...drag.initial,...historyRange(entries(),drag.entry,entry)]);
+    if(isHistory){historySelectedEntries=next;historySelectionAnchor=drag.entry;updateHistorySelectionUI()}
+    else{queueSelectedPaths=next;queueSelectionAnchor=drag.entry;updateQueueRowSelection()}
   });
   const finish=e=>{if(!drag||drag.id!==e.pointerId)return;suppressClick=drag.active;drag=null;if(host.hasPointerCapture(e.pointerId))host.releasePointerCapture(e.pointerId);if(suppressClick)setTimeout(()=>{suppressClick=false},0)};
   host.addEventListener('pointerup',finish);host.addEventListener('pointercancel',finish);host.addEventListener('lostpointercapture',finish);
   host.addEventListener('click',e=>{if(suppressClick){e.preventDefault();e.stopImmediatePropagation();suppressClick=false}},true);
+  }
   dialog.addEventListener('keydown',e=>{
-    if(queuePanel!=='history'||!(e.ctrlKey||e.metaKey)||e.key.toLowerCase()!=='a'||e.target.closest('input,textarea,select,[contenteditable=true]'))return;
-    e.preventDefault();e.stopPropagation();historySelectedEntries=new Set(playerHistory);updateHistorySelectionUI();
+    if(!(e.ctrlKey||e.metaKey)||e.key.toLowerCase()!=='a'||e.target.closest('input,textarea,select,[contenteditable=true]'))return;
+    e.preventDefault();e.stopPropagation();if(queuePanel==='history'){historySelectedEntries=new Set(playerHistory);updateHistorySelectionUI()}else{queueSelectedPaths=new Set(playerQueue);updateQueueRowSelection()}
   });
 }
 function useHistorySelection(append=false){
@@ -2956,19 +3016,23 @@ function renderQueue(){
   el('queueList').hidden=history;el('historyList').hidden=!history;el('historyClear').hidden=!history;
   el('queueClear').hidden=history;el('queueAddResults').hidden=history;el('queueAppendResults').hidden=history;
   el('queueCollectionPanel').hidden=history;el('historyUseSelection').hidden=el('historyAppendSelection').hidden=!history;
+  el('queueRemoveSelected').hidden=history||!queueSelectedPaths.size;
   toggle.textContent=history?'Queue':'History';toggle.setAttribute('aria-pressed',String(history));
   toggle.title=history?'Return to playback queue':'Show listening history';
   const n=playerQueue.length;
   el('queueCount').textContent=history?playerHistory.length+' entries · '+playerHistory.filter(e=>playerEligible(e.path)).length+' playable':n+' entries · '+playerQueue.filter(playerEligible).length+' playable';
   el('queueClear').disabled=!n&&!playerPath&&!selectedPaths.size;el('queueAddResults').disabled=el('queueAppendResults').disabled=!root||!filtered.some(x=>playerEligible(x.path));
   if(history){renderHistory();updatePlaylistButtons();return}
-  const list=el('queueList');list.replaceChildren();queuePage=renderQueuePagination(queuePage,n);updateQueuePlayButton();
+  const list=el('queueList');list.replaceChildren();
+  const live=new Set(playerQueue);for(const path of queueSelectedPaths)if(!live.has(path))queueSelectedPaths.delete(path);
+  if(!live.has(queueSelectionAnchor))queueSelectionAnchor=null;
+  queuePage=renderQueuePagination(queuePage,n);updateQueuePlayButton();updateQueueRemoveButton();
   if(!n){const empty=document.createElement('div');empty.className='queue-empty';empty.textContent='Queue is empty. Add tracks from the library or load a collection.';list.append(empty)}
   for(let i=queuePage*QUEUE_PAGE_SIZE;i<Math.min(n,(queuePage+1)*QUEUE_PAGE_SIZE);i++){
     const path=playerQueue[i],row=document.createElement('div');row.className='queue-row'+(path===playerPath?' is-current':'');
     const number=document.createElement('span');number.className='queue-number';number.textContent=String(i+1);
     const current=path===playerPath;row.append(number,queueTrackLabel(path,current?'Current track':''));
-    row.setAttribute('role','listitem');
+    selectQueueRow(row,path);
     row.append(queueButton('▶','Play '+path,()=>playQueuePanelTrack(path),!playerEligible(path)),
       queueButton('↑','Move up',()=>{playerQueue=moveQueueEntry(playerQueue,i,-1,playerPath);resetQueueOrder();queueChanged()},current||i===0||playerQueue[i-1]===playerPath),
       queueButton('↓','Move down',()=>{playerQueue=moveQueueEntry(playerQueue,i,1,playerPath);resetQueueOrder();queueChanged()},current||i===n-1||playerQueue[i+1]===playerPath),
@@ -3078,7 +3142,7 @@ function initMusicCollections(){
   el('playerQueueButton').onclick=openMusicQueue;
   el('queueClose').onclick=()=>el('musicQueueDialog').close();
   el('queuePlay').onclick=toggleQueuePanelPlayback;
-  initHistorySelection();el('historyUseSelection').onclick=()=>useHistorySelection();el('historyAppendSelection').onclick=()=>useHistorySelection(true);
+  initHistorySelection();el('queueRemoveSelected').onclick=removeSelectedQueuePaths;el('historyUseSelection').onclick=()=>useHistorySelection();el('historyAppendSelection').onclick=()=>useHistorySelection(true);
   el('queueAddResults').onclick=()=>{const paths=filtered.map(x=>x.path).filter(playerEligible);if(!paths.length)return;if(playerPath&&!paths.includes(playerPath))stopMusic();clearSelection();setPlayerQueue(paths);queueNotice('Queue replaced with current results.')};
   el('queueAppendResults').onclick=()=>appendQueueMembership(filtered.map(x=>x.path));
   el('queueClear').onclick=()=>{stopMusic();clearSelection();renderQueue();queueNotice('Queue cleared. Playback stopped and selection cleared.')};
@@ -3568,7 +3632,14 @@ async function removeCollection(){
 }
 
 function renderAlbumSelector(){const s=el('albumSelect'),old=s.value;s.replaceChildren(new Option('Choose album',''));for(const name of [...albums.keys()].sort((a,b)=>a.localeCompare(b,'cs')))s.add(new Option(name,name));if(albums.has(old))s.value=old;updateAlbumButton()}
+function updateFolderDisplay(){
+  const select=el('folder'),path=select.value;
+  el('folderLeaf').textContent=path?path.split('/').at(-1):'All folders';
+  select.title=path||'All folders';
+  const label=el('headerRelativePath');label.textContent=path||'All folders';label.title=path||'All folders';
+}
 function filterAndRender(metadataRefresh=false,navigation='',preserveCards=false){
+  updateFolderDisplay();
   const previous=filtered;
   const q=el('query').value.trim(),folder=el('folder').value,kind=el('kind').value,facets=readMusicFacets();
   const albumSets=[...selectedAlbumNames].filter(name=>albums.has(name)).map(name=>albums.get(name));

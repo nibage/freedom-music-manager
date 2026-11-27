@@ -10,7 +10,7 @@ function harness(){
   const nodes=new Map(),el=id=>{if(!nodes.has(id))nodes.set(id,new Node());return nodes.get(id)};
   const env={el,document:{createElement:()=>new Node()},queueTrackLabel:p=>p,queueButton:()=>({}),updatePlaylistButtons(){},renderPlaylistOptions(){},playerEligible:()=>true};
   const api=new Function('env','const {el,document,queueTrackLabel,queueButton,updatePlaylistButtons,renderPlaylistOptions,playerEligible}=env;'+
-    "const QUEUE_PAGE_SIZE=3;let queuePanel='queue',queuePage=0,historyPage=0,playerPath='a',playerQueue=['a','b','c','d'],playerHistory=Array.from({length:8},(_,i)=>({path:'h'+i,at:i})),musicCollectionsWritable=true,root={},filtered=[],selectedPaths=new Set(),historySelectedEntries=new Set(),historySelectionAnchor=null,historyPlaybackSelection=null,playerLoading=false,playerWantsPlay=false,playerAudio={paused:true,ended:false};"+
+    "const QUEUE_PAGE_SIZE=3;let queuePanel='queue',queuePage=0,historyPage=0,playerPath='a',playerQueue=['a','b','c','d'],playerHistory=Array.from({length:8},(_,i)=>({path:'h'+i,at:i})),musicCollectionsWritable=true,root={},filtered=[],selectedPaths=new Set(),historySelectedEntries=new Set(),historySelectionAnchor=null,historyPlaybackSelection=null,queueSelectedPaths=new Set(),queueSelectionAnchor=null,playerLoading=false,playerWantsPlay=false,playerAudio={paused:true,ended:false};"+
     source+";return {renderQueue,openMusicQueue,panel:p=>{queuePanel=p;renderQueue()},next:()=>{if(queuePanel==='history')historyPage++;else queuePage++;renderQueue()},clear:()=>{playerHistory=[];renderQueue()},target:queuePanelTarget,state:()=>({queuePage,historyPage,queuePanel,queue:playerQueue.slice()})};"
   )(env);
   return {api,el};

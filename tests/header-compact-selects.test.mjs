@@ -9,8 +9,8 @@ test('theme remains accessible without visible Theme label and library chooser i
 });
 test('format width is transferred to folders at desktop and smaller widths',()=>{
   assert.match(html,/<select id="kind"[^>]*><option value="">All formats<\/option>/);
-  assert.match(html,/#folder\{\s*flex:0 0 216px;\s*width:216px;\s*min-width:216px;\s*max-width:216px;/);
+  assert.match(html,/#folderControl\{\s*flex:0 0 216px;\s*width:216px;\s*min-width:216px;\s*max-width:216px;/);
   assert.match(html,/#kind\{\s*flex:0 0 120px;\s*width:120px;\s*min-width:120px;\s*max-width:120px;/);
-  assert.match(html,/#folder\{\s*flex:0 1 254px;/);
-  assert.match(html,/#folder\{flex:1 1 244px;/);
+  assert.match(html,/#folderControl\{\s*flex:0 1 254px;/);
+  assert.match(html,/#folderControl\{flex:1 1 244px;/);
 });
