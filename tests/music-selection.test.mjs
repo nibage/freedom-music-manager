@@ -17,7 +17,7 @@ function harness({playing='a',queue=['a','b']}={}){
   const api=new Function('env',
     'const {nodes,filtered,events,el,byPath,musicTitle,queueThumb,updatePlayerControls,syncViewBack,DEFAULT_COVER}=env;'+
     "let playerPath=env.playing,playerPreviewPath=null,playerQueue=env.queue.slice(),playerURL=playerPath?'blob:old':null,playerRequest=7,playerLoading=false,playerWantsPlay=false,deletingMedia=false,librarySwitching=false,suppressCardClick=false,selectedPaths=new Set(),selectionAnchor=null,visibleCount=80;"+
-    "const playerAudio={paused:!playerPath,ended:false,currentTime:12,pause(){events.push('pause')}};const playerEligible=p=>byPath.has(p);function resetQueueOrder(){events.push('reset-order')}function startTrack(path,newQueue){events.push(['start',path,newQueue]);}function resumePlayer(){events.push('resume')}function updateSelectionUI(){if(playerPreviewPath&&!selectedPaths.has(playerPreviewPath))dismissTrackPreview()}"+
+    "const playerAudio={paused:!playerPath,ended:false,currentTime:12,pause(){events.push('pause')}};const playerEligible=p=>byPath.has(p);function resetQueueOrder(){events.push('reset-order')}function startTrack(path,newQueue){events.push(['start',path,newQueue]);}function resumePlayer(){events.push('resume')}function updateSelectionUI(){if(playerPreviewPath&&!selectedPaths.has(playerPreviewPath))dismissTrackPreview()}function clearSelection(){selectedPaths.clear();selectionAnchor=null;dismissTrackPreview();updateSelectionUI()}"+
     display+stage+toggle+click+queueLogic+
     ";return {prepareTrack,dismissTrackPreview,toggleMusic,click:(path,mod={})=>activateCard(path,{preventDefault(){},stopPropagation(){},...mod}),state:()=>({path:playerPath,preview:playerPreviewPath,shown:displayedPlayerPath(),queue:playerQueue.slice(),url:playerURL,request:playerRequest,time:playerAudio.currentTime,paused:playerAudio.paused,selection:[...selectedPaths],title:el('playerTitle').textContent})};"
   )(env);
@@ -52,4 +52,24 @@ test('selection toolbar is hidden in both layouts and queue actions live in foot
   assert.match(footer,/id="playerTitle"[\s\S]*?id="bulkPlayNext"[\s\S]*?id="playerPlay"[\s\S]*?id="bulkQueue"[\s\S]*?id="playerQueueButton"/);
   assert.doesNotMatch(js,/playerPrepared/);
   assert.doesNotThrow(()=>new Function(js));
+});
+
+test('second click on sole selected track deselects and restores the current player',()=>{
+  const {api,events}=harness();
+  const before=api.state();api.click('b');api.click('b');
+  assert.deepEqual(api.state().selection,[]);assert.equal(api.state().preview,null);
+  assert.equal(api.state().shown,'a');assert.equal(api.state().url,before.url);
+  assert.equal(api.state().time,before.time);assert.deepEqual(events,[]);
+});
+test('click on a selected member of a multi-selection reduces it to that one track',()=>{
+  const {api}=harness();api.click('b');api.click('c',{ctrlKey:true});api.click('b');
+  assert.deepEqual(api.state().selection,['b']);assert.equal(api.state().preview,'b');
+});
+test('cover opens details instead of selecting; both redundant info buttons are gone',()=>{
+  assert.match(js,/media\.onclick=e=>openCoverDetails\(item\.path,e\)/);
+  assert.match(js,/function openCoverDetails\(path,event\)\{[\s\S]*?if\(suppressCardClick\)return;[\s\S]*?void openViewer\(path\)/);
+  assert.match(js,/meta\.onclick=selectFromCaption/);
+  assert.match(html,/<button id="playerCoverButton"[^>]*><img id="playerCover"/);
+  assert.match(js,/el\('playerCoverButton'\)\.onclick=\(\)=>\{const path=displayedPlayerPath\(\);if\(path\)void openViewer\(path\)\}/);
+  assert.doesNotMatch(html,/playerDetails|track-info-button/);
 });

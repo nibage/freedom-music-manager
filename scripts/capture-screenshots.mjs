@@ -110,7 +110,17 @@ try {
   const card = page.locator('#gallery .photo').filter({hasText:'First Light'});
   const initialTop=await page.locator('#gallery').evaluate(e=>e.getBoundingClientRect().top);
   await card.locator('.video-tile').click();
+  await page.waitForFunction(()=>document.getElementById('viewer').open&&currentPath?.includes('First Light')&&!selectedPaths.size&&!playerPath);
+  await page.evaluate(()=>closeViewer());
+  await card.locator('.meta').click();
   await page.waitForFunction(()=>playerPreviewPath?.includes('First Light')&&!playerPath&&playerAudio.paused&&selectedPaths.size===1);
+  await card.locator('.meta').click();
+  await page.waitForFunction(()=>!selectedPaths.size&&!playerPreviewPath);
+  await card.locator('.meta').click();
+  await page.waitForFunction(()=>playerPreviewPath?.includes('First Light')&&selectedPaths.size===1);
+  await page.locator('#playerCoverButton').click();
+  await page.waitForFunction(()=>document.getElementById('viewer').open&&currentPath?.includes('First Light')&&selectedPaths.size===1&&!playerPath);
+  await page.evaluate(()=>closeViewer());
   if(await page.locator('#gallery').evaluate(e=>e.getBoundingClientRect().top)!==initialTop)throw Error('Selecting a track moved the results grid');
   const other=page.locator('#gallery .photo').filter({hasNotText:'First Light'}).first();
   await other.locator('.meta').click({modifiers:['Control']});
@@ -127,6 +137,10 @@ try {
   const preview=await page.evaluate(()=>({path:playerPath,url:playerURL,request:playerRequest,time:playerAudio.currentTime,queue:playerQueue.slice(),paused:playerAudio.paused}));
   if(preview.path!==original.path||preview.url!==original.url||preview.request!==original.request||preview.time<original.time||preview.paused||JSON.stringify(preview.queue)!==JSON.stringify(original.queue))throw Error('Selecting another track interrupted playback or changed the queue');
   if(await page.locator('#gallery').evaluate(e=>e.getBoundingClientRect().top)!==initialTop)throw Error('Selecting during playback moved results');
+  await other.locator('.meta').click();
+  await page.waitForFunction(()=>!playerPreviewPath&&!selectedPaths.size&&playerPath?.includes('First Light')&&!playerAudio.paused);
+  if(await page.evaluate(()=>playerURL)!==original.url)throw Error('Deselecting replaced audio source');
+  await other.locator('.meta').click();
   await page.locator('#viewBack').click();
   await page.waitForFunction(()=>!playerPreviewPath&&!selectedPaths.size&&playerPath?.includes('First Light')&&!playerAudio.paused);
   if(await page.evaluate(()=>playerURL)!==original.url)throw Error('Back replaced the audio source');
