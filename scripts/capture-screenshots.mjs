@@ -143,9 +143,17 @@ try {
   await page.locator('#playlistSave').click();
   await page.waitForFunction(() => albums.get('CI demo collection')?.size === 9);
   await page.waitForFunction(() => !pendingSaves);
+  const queueBounds=await page.locator('#musicQueueDialog').boundingBox();
+  await page.locator('#queueList .queue-row').first().locator('.queue-track-label').click();
+  if(!await page.locator('#queueList .queue-row').first().evaluate(row=>row.classList.contains('is-selected')))throw Error('Queue row not selected');
   await page.locator('#queueHistoryToggle').click();
   await page.waitForFunction(()=>!document.getElementById('historyList').hidden&&document.getElementById('queueList').hidden&&!document.getElementById('historyClear').hidden);
   if(await page.locator('#queueHistoryToggle').textContent()!=='Queue')throw Error('Missing return to queue');
+  if(await page.locator('#queueClear').isVisible()||await page.locator('#queueAddResults').isVisible())throw Error('Queue actions visible in History');
+  const historyBounds=await page.locator('#musicQueueDialog').boundingBox();
+  if(queueBounds.width!==historyBounds.width||queueBounds.height!==historyBounds.height)throw Error('History changed dialog dimensions');
+  await page.locator('#historyList .queue-row').first().locator('.queue-track-label').click();
+  if(!await page.locator('#historyList .queue-row').first().evaluate(row=>row.classList.contains('is-selected')))throw Error('History row not selected');
   if(await page.locator('#historyList .queue-row').count()<1)throw Error('Listening history not displayed');
   await page.locator('#queueHistoryToggle').click();
   await page.waitForFunction(()=>!document.getElementById('queueList').hidden&&document.getElementById('historyList').hidden&&document.getElementById('historyClear').hidden);
