@@ -25,5 +25,5 @@ test('both lists support plain drag and modifier drag with autoscroll',()=>{
   assert.match(source,/initial:e.ctrlKey\|\|e.metaKey\?new Set\(currentSelection\(\)\):new Set\(\)/);
   assert.match(source,/document.addEventListener\('pointermove'/);
   assert.match(source,/host.scrollTop\+=dy/);
-  assert.match(source,/historyRange\(entries\(\),drag.entry,entry\)/);
+  assert.match(source,/queueDragRange\(rows,drag.startContentY,contentY\(y\)\)/);
 });

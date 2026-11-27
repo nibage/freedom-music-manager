@@ -42,11 +42,16 @@ def write_wave(path, duration, hz, tags):
         out.setsampwidth(2)
         out.setframerate(RATE)
         out.writeframes(frames)
+    path.write_bytes(wave_with_tags(path.read_bytes(), tags))
+
+
+def wave_with_tags(data, tags):
     info = {'title': b'INAM', 'artist': b'IART', 'album': b'IPRD', 'genre': b'IGNR', 'date': b'ICRD', 'track': b'ITRK'}
     payload = b'INFO' + b''.join(riff_chunk(info[k], str(v).encode('utf-8') + b'\0') for k, v in tags.items() if v)
     if len(payload) > 4:
-        data = path.read_bytes() + riff_chunk(b'LIST', payload)
-        path.write_bytes(data[:4] + struct.pack('<I', len(data)-8) + data[8:])
+        data += riff_chunk(b'LIST', payload)
+        return data[:4] + struct.pack('<I', len(data)-8) + data[8:]
+    return data
 
 
 def cover(path, seed):
@@ -63,7 +68,9 @@ def cover(path, seed):
     path.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', n,n,8,2,0,0,0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b''))
 
 
-def generate(root):
+def generate(root, count=9):
+    if count < len(TRACKS):
+        raise ValueError(f'count must be at least {len(TRACKS)}')
     # Never overwrite an existing library.
     root.mkdir(parents=True, exist_ok=False)
     ffmpeg = shutil.which('ffmpeg')
@@ -94,6 +101,29 @@ def generate(root):
                     dest = dest.with_suffix('.wav')
                     shutil.copyfile(source, dest)
             manifest.append({'path': dest.relative_to(root).as_posix(), 'tags': tags, 'duration_seconds': duration, 'format': dest.suffix[1:]})
+        # Reuse eight short original audio signals, but give each track unique metadata.
+        # This keeps generation fast, even for thousands of real playable files.
+        signals = []
+        if count > len(TRACKS):
+            for i in range(8):
+                source = Path(temp)/f'bulk-{i}.wav'
+                write_wave(source, 1, 180 + i * 30, {})
+                signals.append(source.read_bytes())
+        for i in range(count - len(TRACKS)):
+            album_index, number = divmod(i, 50)
+            artist = f'Stress Artist {album_index // 4 + 1:03d}'
+            album = f'Stress Album {album_index + 1:03d}'
+            title = f'Stress Track {i + 1:05d}'
+            folder = root / 'Stress test' / artist / album
+            folder.mkdir(parents=True, exist_ok=True)
+            if number == 0:
+                cover(folder/'cover.png', album_index + 11)
+            tags = {'title': title, 'artist': artist, 'album': album,
+                    'genre': ['Ambient', 'Electronic', 'Instrumental', 'Rock'][album_index % 4],
+                    'date': str(2020 + album_index % 7), 'track': str(number + 1)}
+            dest = folder / f'{number + 1:02d} - {title}.wav'
+            dest.write_bytes(wave_with_tags(signals[i % len(signals)], tags))
+            manifest.append({'path': dest.relative_to(root).as_posix(), 'tags': tags, 'duration_seconds': 1, 'format': 'wav'})
     (root/'expected-metadata.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
     (root/'README.txt').write_text('Synthetic demo tracks, generated locally. No commercial recordings.\nSelect this directory in Freedom Music Manager. expected-metadata.json describes the expected tags. Untitled has no embedded tags or cover.\n', encoding='utf-8')
     print(f'Created {len(manifest)} tracks in {root}: '+', '.join(sorted({t['format'] for t in manifest})))
@@ -102,4 +132,8 @@ def generate(root):
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('directory', nargs='?', type=Path, default=Path('demo-music'))
-    generate(p.parse_args().directory)
+    p.add_argument('--count', type=int, default=len(TRACKS), help='Total number of tracks (default: 9); extras are short tagged WAVs')
+    args = p.parse_args()
+    if args.count < len(TRACKS):
+        p.error(f'--count must be at least {len(TRACKS)}')
+    generate(args.directory, args.count)

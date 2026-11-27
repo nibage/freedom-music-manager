@@ -59,6 +59,8 @@ Older `__gallery/data/` metadata can be copied to the new layout with confirmati
 
 ```sh
 python3 scripts/generate_music_demo.py demo-music
+# Optional stress-test library (2,000 real tracks, generated in a new directory):
+python3 scripts/generate_music_demo.py demo-music-large --count 2000
 node --test tests/music-*.test.mjs tests/unified-music-collections.test.mjs
 npm install --no-save --no-package-lock playwright@1.56.1
 npx playwright install chromium
@@ -69,3 +71,5 @@ python3 scripts/build_music_release.py v1.0.0-rc.3
 FFmpeg is needed to generate all six demo formats; otherwise the generator falls back to WAV. CI requires all six. The browser test uses real synthetic audio bytes and mock filesystem handles, not personal files. Native folder-picker permissions still require manual testing in Chrome/Edge. Release candidate status is retained until CI and manual checks are confirmed.
 
 Licensed under GNU GPL v3; see [LICENSE](LICENSE). Adapted from Freedom Gallery, modified in November 2026.
+
+The optional large demo uses short tagged WAV files grouped into artists/albums with generated covers. The nine-track demo and CI defaults are unchanged. Queue and History support dragging from empty space in either direction, including scrollable lists; clicking empty space clears the active list selection without interfering with its action buttons.

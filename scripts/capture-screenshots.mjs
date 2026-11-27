@@ -248,6 +248,21 @@ try {
     await page.mouse.move(third.x+45,third.y+third.height/2,{steps:8});await page.mouse.up();
     await page.waitForFunction(()=>queueSelectedPaths.size===3);
   }
+  // Temporarily shorten the queue so that blank space exists below the rows.
+  const fullQueueForDrag=await page.evaluate(()=>{const q=playerQueue.slice();setPlayerQueue(q.slice(0,3));return q});
+  const queueBox=await page.locator('#queueList').boundingBox();
+  const firstQueue=await page.locator('#queueList .queue-row').first().boundingBox();
+  const lastQueue=await page.locator('#queueList .queue-row').last().boundingBox();
+  const blankQueueY=(lastQueue.y+lastQueue.height+queueBox.y+queueBox.height)/2;
+  if(blankQueueY<=lastQueue.y+lastQueue.height+3)throw Error('Missing blank queue area');
+  await page.mouse.move(queueBox.x+30,blankQueueY);await page.mouse.down();
+  await page.mouse.move(firstQueue.x+30,firstQueue.y+firstQueue.height/2,{steps:8});await page.mouse.up();
+  await page.waitForFunction(()=>queueSelectedPaths.size===3);
+  await page.mouse.click(queueBox.x+30,blankQueueY);await page.waitForFunction(()=>!queueSelectedPaths.size);
+  await page.mouse.move(firstQueue.x+30,firstQueue.y+firstQueue.height/2);await page.mouse.down();
+  await page.mouse.move(queueBox.x+30,blankQueueY,{steps:8});await page.mouse.up();
+  await page.waitForFunction(()=>queueSelectedPaths.size===3);
+  await page.evaluate(q=>setPlayerQueue(q),fullQueueForDrag);
   await page.keyboard.press('Control+a');
   await page.waitForFunction(()=>queueSelectedPaths.size===playerQueue.length&&!document.getElementById('queueRemoveSelected').hidden);
   await page.locator('#queueRemoveSelected').click();
@@ -275,6 +290,15 @@ try {
     await page.mouse.move(second.x+15,second.y+second.height/2,{steps:5});await page.mouse.up();
     await page.waitForFunction(()=>historySelectedEntries.size===2);
   }
+  const fullHistoryForDrag=await page.evaluate(()=>{const h=playerHistory.slice();playerHistory=h.slice(0,2);renderHistory();return h});
+  const historyBox=await page.locator('#historyList').boundingBox(),firstHistory=await page.locator('#historyList .queue-row').first().boundingBox(),lastHistory=await page.locator('#historyList .queue-row').last().boundingBox();
+  const blankHistoryY=(lastHistory.y+lastHistory.height+historyBox.y+historyBox.height)/2;
+  if(blankHistoryY<=lastHistory.y+lastHistory.height+3)throw Error('Missing blank history area');
+  await page.mouse.move(historyBox.x+20,blankHistoryY);await page.mouse.down();
+  await page.mouse.move(firstHistory.x+20,firstHistory.y+firstHistory.height/2,{steps:8});await page.mouse.up();
+  await page.waitForFunction(()=>historySelectedEntries.size===playerHistory.length);
+  await page.mouse.click(historyBox.x+20,blankHistoryY);await page.waitForFunction(()=>!historySelectedEntries.size);
+  await page.evaluate(h=>{playerHistory=h;renderHistory()},fullHistoryForDrag);
   await page.keyboard.press('Control+a');
   await page.waitForFunction(()=>historySelectedEntries.size===playerHistory.length);
   if(await page.locator('#historyList .queue-row button').count())throw Error('Unexpected individual history play buttons');

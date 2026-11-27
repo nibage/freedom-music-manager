@@ -941,7 +941,7 @@ body {padding-bottom:var(--music-player-height)}
 #musicQueueDialog {width:min(760px,96vw);height:90dvh;max-width:96vw;max-height:90dvh;box-sizing:border-box;background:var(--panel);color:var(--text)}
 #musicQueueDialog .queue-body {padding:18px;display:flex;flex-direction:column;gap:12px;height:100%;min-height:0;box-sizing:border-box;overflow:auto}
 #musicQueueDialog .queue-body > :not(.queue-list){flex-shrink:0}
-#musicQueueDialog .queue-list{flex:1 1 0;min-height:80px;max-height:none;scrollbar-gutter:stable}
+#musicQueueDialog .queue-list{flex:1 1 0;min-height:80px;max-height:none;scrollbar-gutter:stable;user-select:none;cursor:default}
 #musicQueueDialog #queueList .queue-row{cursor:default}
 #musicQueueDialog #historyList .queue-row{cursor:pointer;user-select:none}
 #playlistLoad{width:128px;min-width:128px}
@@ -2972,35 +2972,48 @@ function removeSelectedQueuePaths(){
   playerQueue=playerQueue.filter(path=>!removed.has(path));queueSelectedPaths.clear();queueSelectionAnchor=null;
   resetQueueOrder();queueChanged();queueNotice(removed.size+' track(s) removed from queue.');
 }
+// Coordinates are in the scrollable list's content space, including empty space.
+function queueDragRange(rows,startY,endY){
+  const low=Math.min(startY,endY),high=Math.max(startY,endY);
+  return rows.filter(row=>row.bottom>low&&row.top<high).map(row=>row.entry);
+}
 function initHistorySelection(){
   const dialog=el('musicQueueDialog');
   for(const isHistory of [true,false]){
     const host=el(isHistory?'historyList':'queueList');let drag=null,suppressClick=false,frame=0;
     const entryOf=row=>isHistory?row?.historyEntry:row?.queuePath;
     const currentSelection=()=>isHistory?historySelectedEntries:queueSelectedPaths;
-    const entries=()=>isHistory?playerHistory:playerQueue;
+    const setSelection=(next,anchor)=>{
+      if(isHistory){historySelectedEntries=next;historySelectionAnchor=anchor;updateHistorySelectionUI()}
+      else{queueSelectedPaths=next;queueSelectionAnchor=anchor;updateQueueRowSelection()}
+    };
+    const contentY=y=>y-host.getBoundingClientRect().top-host.clientTop+host.scrollTop;
     function applyRange(){
       if(!drag?.active)return;
       const bounds=host.getBoundingClientRect();
-      const y=Math.max(bounds.top+2,Math.min(bounds.bottom-2,drag.y));
-      // Use the row's vertical extent, so dragging over labels or outside the list horizontally works.
-      const rows=[...host.querySelectorAll('.queue-row')];
-      const row=rows.find(r=>{const b=r.getBoundingClientRect();return b.top<=y&&b.bottom>=y});
-      const entry=entryOf(row);if(!entry)return;
-      const next=new Set([...drag.initial,...historyRange(entries(),drag.entry,entry)]);
-      if(isHistory){historySelectedEntries=next;historySelectionAnchor=drag.entry;updateHistorySelectionUI()}
-      else{queueSelectedPaths=next;queueSelectionAnchor=drag.entry;updateQueueRowSelection()}
+      const y=Math.max(bounds.top+host.clientTop,Math.min(bounds.top+host.clientTop+host.clientHeight,drag.y));
+      const rows=[...host.querySelectorAll('.queue-row')].map(row=>{
+        const b=row.getBoundingClientRect();return {entry:entryOf(row),top:contentY(b.top),bottom:contentY(b.bottom)};
+      }).filter(row=>row.entry!=null);
+      const range=queueDragRange(rows,drag.startContentY,contentY(y));
+      setSelection(new Set([...drag.initial,...range]),drag.entry??range[0]??null);
     }
     function scrollFrame(){
       frame=0;if(!drag?.active)return;
       const b=host.getBoundingClientRect(),edge=28;
       const dy=drag.y<b.top+edge?-Math.min(18,Math.max(1,(b.top+edge-drag.y)/3)):drag.y>b.bottom-edge?Math.min(18,Math.max(1,(drag.y-b.bottom+edge)/3)):0;
-      if(dy){host.scrollTop+=dy;applyRange();frame=requestAnimationFrame(scrollFrame)}
+      if(dy){
+        const before=host.scrollTop;host.scrollTop+=dy;
+        if(host.scrollTop!==before){applyRange();frame=requestAnimationFrame(scrollFrame)}
+      }
     }
     host.addEventListener('pointerdown',e=>{
-      if(e.button!==0||e.pointerType==='touch'||e.target.closest('button,input,select'))return;
-      const entry=entryOf(e.target.closest('.queue-row'));if(!entry)return;
-      drag={id:e.pointerId,x:e.clientX,startY:e.clientY,y:e.clientY,entry,initial:e.ctrlKey||e.metaKey?new Set(currentSelection()):new Set(),active:false};suppressClick=false;
+      if(e.button!==0||e.pointerType==='touch'||e.target.closest('button,input,select,textarea,a,[contenteditable=true]'))return;
+      // Do not turn native scrollbar drags into row selection.
+      const bounds=host.getBoundingClientRect();
+      if(e.clientX>=bounds.left+host.clientLeft+host.clientWidth||e.clientY>=bounds.top+host.clientTop+host.clientHeight)return;
+      const entry=entryOf(e.target.closest('.queue-row'));
+      drag={id:e.pointerId,x:e.clientX,startY:e.clientY,startContentY:contentY(e.clientY),y:e.clientY,entry,initial:e.ctrlKey||e.metaKey?new Set(currentSelection()):new Set(),active:false};suppressClick=false;
     });
     document.addEventListener('pointermove',e=>{
       if(!drag||drag.id!==e.pointerId)return;
@@ -3016,7 +3029,16 @@ function initHistorySelection(){
       if(suppressClick)setTimeout(()=>{suppressClick=false},0);
     };
     document.addEventListener('pointerup',finish);document.addEventListener('pointercancel',finish);host.addEventListener('lostpointercapture',finish);
-    host.addEventListener('click',e=>{if(suppressClick){e.preventDefault();e.stopImmediatePropagation();suppressClick=false}},true);
+    host.addEventListener('click',e=>{
+      if(suppressClick){e.preventDefault();e.stopImmediatePropagation();suppressClick=false}
+    },true);
+    // Blank space within the list or dialog clears only the visible list's selection.
+    // Action buttons and form controls must retain selection until their action executes.
+    dialog.addEventListener('click',e=>{
+      if((queuePanel==='history')!==isHistory||e.ctrlKey||e.metaKey||e.shiftKey)return;
+      if(e.target.closest('.queue-row,button,input,select,textarea,a,label,[contenteditable=true]'))return;
+      if(currentSelection().size)setSelection(new Set(),null);
+    });
   }
   dialog.addEventListener('keydown',e=>{
     if(!(e.ctrlKey||e.metaKey)||e.key.toLowerCase()!=='a'||e.target.closest('input,textarea,select,[contenteditable=true]'))return;
