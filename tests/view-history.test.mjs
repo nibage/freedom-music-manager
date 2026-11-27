@@ -25,10 +25,10 @@ function harness(){
     renderAlbumList(){},renderTagList(){},navButtonActive(){},renderCards(){},clearSelection(){},syncFilterControls(){},knownTags:()=>[{key:'water'}],
     refreshMusicFacetOptions(){},updateMusicFilterStatus(){},updateResultsLine(){},rememberMusicSort(){}};
   const api=new Function('env',
-    'const {el,images,albums,tags,favorites,trash,localStorage,Option,audioFormat,renderAlbumList,renderTagList,navButtonActive,renderCards,clearSelection,syncFilterControls,knownTags,refreshMusicFacetOptions,updateMusicFilterStatus,updateResultsLine,rememberMusicSort}=env;'+
-    "let root={},librarySwitching=false,selectedAlbumNames=new Set(),selectedTagKeys=new Set(),selectedSpecialViews=new Set(),collectionOperator='OFF',folderLocked=true,activeView={type:'all'},filtered=[],visibleCount=80,musicSortDirection=1;const FOLDER_LOCK_KEY='lock',COLLECTION_OPERATOR_KEY='operator',musicFacetIds={artist:'musicArtist',album:'musicAlbum',genre:'musicGenre',year:'musicYear'};"+
-    logic+facetReader+collections+history+filters+
-    ";return {filterAndRender,goBackView,resetViewHistory,scheduleSearchNavigation,chooseCollection,chooseSpecialView,state:()=>({view:captureViewState(),results:filtered.map(x=>x.path),history:viewHistory.length,backDisabled:el('viewBack').disabled}),mode:(operator,locked)=>{collectionOperator=operator;folderLocked=locked;filterAndRender(false,'filter')},direction:()=>{musicSortDirection*=-1;filterAndRender(false,'filter')}}"
+    'const {el,images,albums,tags,favorites,trash,localStorage,Option,audioFormat,renderAlbumList,renderTagList,navButtonActive,renderCards,syncFilterControls,knownTags,refreshMusicFacetOptions,updateMusicFilterStatus,updateResultsLine,rememberMusicSort}=env;'+
+    "let root={},librarySwitching=false,selectedPaths=new Set(),playerPreviewPath=null,selectedAlbumNames=new Set(),selectedTagKeys=new Set(),selectedSpecialViews=new Set(),collectionOperator='OFF',folderLocked=true,activeView={type:'all'},filtered=[],visibleCount=80,musicSortDirection=1;const FOLDER_LOCK_KEY='lock',COLLECTION_OPERATOR_KEY='operator',musicFacetIds={artist:'musicArtist',album:'musicAlbum',genre:'musicGenre',year:'musicYear'};"+
+    'function clearSelection(){selectedPaths.clear();playerPreviewPath=null;}'+logic+facetReader+collections+history+filters+
+    ";return {filterAndRender,goBackView,resetViewHistory,scheduleSearchNavigation,chooseCollection,chooseSpecialView,state:()=>({view:captureViewState(),results:filtered.map(x=>x.path),history:viewHistory.length,backDisabled:el('viewBack').disabled,selection:[...selectedPaths],preview:playerPreviewPath}),select:p=>{selectedPaths.add(p);playerPreviewPath=p;syncViewBack()},mode:(operator,locked)=>{collectionOperator=operator;folderLocked=locked;filterAndRender(false,'filter')},direction:()=>{musicSortDirection*=-1;filterAndRender(false,'filter')}}"
   )(env);
   api.filterAndRender();
   return {api,nodes,albums};
@@ -99,4 +99,13 @@ test('header status reserves a fixed width and preserves full text on hover',()=
     assert.equal(status.textContent,message);
     assert.equal(status.title,message);
   }
+});
+
+test('Back clears the selection before consuming filter history',()=>{
+  const {api,nodes}=harness();
+  nodes.query.value='lake';api.filterAndRender(false,'search');api.select('A/1.mp3');
+  assert.equal(api.state().backDisabled,false);assert.equal(api.state().history,1);
+  api.goBackView();assert.deepEqual(api.state().selection,[]);assert.equal(api.state().preview,null);
+  assert.equal(api.state().history,1);assert.equal(api.state().view.query,'lake');
+  api.goBackView();assert.equal(api.state().view.query,'');assert.equal(api.state().backDisabled,true);
 });

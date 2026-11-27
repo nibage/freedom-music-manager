@@ -26,17 +26,17 @@ The demo ZIP contains nine synthetic tracks in WAV, MP3, FLAC, Ogg Vorbis, M4A a
 
 - **Classic View**: square album/track cover cards. **Detailed View**: a list with title, artist, album, genre, year, disc, track, format, duration and relative path when available.
 - Search and combine artist, album, genre, year, duration, format, folder, tags, favorites and music collection filters. Sort ascending/descending; default order respects a single saved collection.
-- Click artwork to play; click the title to select; click ⓘ for track details and membership. The persistent player continues while browsing. Space toggles play/pause when not editing.
+- Click artwork or title to select and prepare a track; press Play to start it; click ⓘ for track details and membership. The persistent player continues while browsing. Space toggles play/pause when not editing.
 - Queue, play next, reorder, shuffle, repeat one/all, volume and seek. Save a queue as a named music collection; play, load or append a collection from the queue dialog.
 - **Music Collections** are ordered virtual groups (also playlists); **Album** is the actual audio tag. Tracks may belong to multiple collections and tags without duplication.
 - Reversible in-app Trash; permanent deletion requires explicit confirmation and does not use the operating system's Recycle Bin.
 - Local listening history (up to 200 entries), metadata cache validated against file size and modification time, lazy cover previews, themes, and one-step undo for supported collection/tag/favorite edits.
 
-**← Back** restores the previous search results, including folder, audio format, music collections, tags, favorites, Trash, OFF/OR/AND, folder lock, metadata filters and sort order. It retains up to 50 navigation steps in the current library session; opening a library resets the history. It does not undo metadata edits or affect playback.
+**← Back** restores the previous search results, including folder, audio format, music collections, tags, favorites, Trash, OFF/OR/AND, folder lock, metadata filters and sort order. It retains up to 50 navigation steps in the current library session; opening a library resets the history. If a track selection is active, Back first clears it and returns the panel to the current track without interrupting playback. It does not undo metadata edits or affect playback.
 
 **Clear cache** (bottom sidebar, alongside Rebuild index and Remove thumbs) resets only this copy's browser storage: saved directory handles, view preferences, theme, folder lock, collection operator, sorting and player volume. It discards obsolete name-only shortcuts and ignores invalid handles. After confirmation the app reloads; playback stops, but tracks, music collections, tags, favorites, listening history and derived disk caches remain intact. Browser-managed permissions may remain. Close other Music Manager tabs before resetting.
 
-Click a track (cover or caption) to select it exclusively and prepare it in the bottom player without autoplay. Ctrl/Cmd-click toggles tracks in a multi-selection; Shift-click selects a range. Select a different track to stop the previous source and prepare the new one; explicit queue contents remain intact. Press Play to start the prepared track. The permanently visible **＋ Queue** and **Play next** buttons between the track description and transport act on selected tracks without moving the results grid. Use the ⓘ button for track details.
+Click a track (cover or caption) to select it exclusively and prepare it in the bottom player without autoplay. Ctrl/Cmd-click toggles tracks in a multi-selection; Shift-click selects a range. Selecting another track changes only the preview in the player; the existing audio, playback position and queue remain intact. Press Play to explicitly start the selected track. Back or Escape dismisses the selection and returns the panel to the actual current track. The permanently visible **＋ Queue** and **Play next** buttons between the track description and transport act on selected tracks without moving the results grid. Use the ⓘ button for track details.
 
 ## How filters combine
 

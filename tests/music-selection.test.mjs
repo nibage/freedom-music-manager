@@ -3,54 +3,53 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 const html=readFileSync(new URL('../__music/index.html',import.meta.url),'utf8');
 const js=html.match(/<script>([\s\S]*?)<\/script>/)[1];
-const slice=(a,b)=>{const start=js.indexOf(a),end=js.indexOf(b,start);assert.ok(start>=0&&end>start);return js.slice(start,end)};
-const selection=slice('function activateCard(path,event){','// Desktop marquee selection');
-const prepare=slice('function prepareTrack(path){','async function startTrack');
-const toggle=slice('function toggleMusic(){','function stepMusic');
-const queue=slice('function addMusicQueue(paths,next=false){','function toggleShuffle');
-const logic=html.match(/\/\* BEGIN MUSIC PLAYER LOGIC \*\/([\s\S]*?)\/\* END MUSIC PLAYER LOGIC \*\//)[1];
-function harness(){
-  const env={events:[],playerAudio:{paused:true,ended:false},eligible:p=>p!=='trash',filtered:['a','b','c','trash'].map(path=>({path}))};
+const slice=(a,b)=>{const x=js.indexOf(a),y=js.indexOf(b,x);assert.ok(x>=0&&y>x);return js.slice(x,y)};
+const display=slice('function displayedPlayerPath(){','function updatePlayerControls(){');
+const stage=slice('function prepareTrack(path){','async function startTrack(');
+const toggle=slice('function toggleMusic(){','function stepMusic(');
+const click=slice('function activateCard(path,event){','// Desktop marquee selection');
+const queueLogic=slice('function queueInsert(queue,paths,current,next,eligible){','function shuffleUpcoming(');
+function harness({playing='a',queue=['a','b']}={}){
+  const nodes=Object.fromEntries(['playerTitle','playerArtist','playerCover','viewBack'].map(id=>[id,{textContent:'',dataset:{},src:''}]));
+  const filtered=['a','b','c'].map(path=>({path,name:path,music:{title:path.toUpperCase()}}));
+  const events=[],env={nodes,filtered,events,el:id=>nodes[id],byPath:new Map(filtered.map(x=>[x.path,x])),musicTitle:item=>item.music.title,
+    queueThumb(){},updatePlayerControls(){},syncViewBack(){},DEFAULT_COVER:'cover',playing,queue};
   const api=new Function('env',
-    "let selectedPaths=new Set(),selectionAnchor=null,suppressCardClick=false,visibleCount=80,playerPath=null,playerPrepared=false,playerRequest=0,playerLoading=false,playerWantsPlay=false,playerSeekActive=false,deletingMedia=false,librarySwitching=false,root={},playerQueue=[],playerURL=null;const {playerAudio,filtered}=env,playerEligible=env.eligible;"+
-    "function releasePlayerSource(){playerURL=null;playerAudio.paused=true;env.events.push('release')}function updatePlayerTrack(){}function updatePlayerTime(){}function queueChanged(){}function updateSelectionUI(){}function updatePlayerControls(){}function resetQueueOrder(){}function queueNotice(){}function resumePlayer(){env.events.push('resume')}async function startTrack(path,snapshot){env.events.push(['start',path,snapshot])}"+
-    logic+prepare+toggle+queue+selection+
-    ";return {click:(path,mod={})=>activateCard(path,{preventDefault(){},stopPropagation(){},...mod}),toggleMusic,addMusicQueue,state:()=>({selected:[...selectedPaths],path:playerPath,prepared:playerPrepared,queue:[...playerQueue]}),setQueue:q=>{playerQueue=q.slice()}}"
+    'const {nodes,filtered,events,el,byPath,musicTitle,queueThumb,updatePlayerControls,syncViewBack,DEFAULT_COVER}=env;'+
+    "let playerPath=env.playing,playerPreviewPath=null,playerQueue=env.queue.slice(),playerURL=playerPath?'blob:old':null,playerRequest=7,playerLoading=false,playerWantsPlay=false,deletingMedia=false,librarySwitching=false,suppressCardClick=false,selectedPaths=new Set(),selectionAnchor=null,visibleCount=80;"+
+    "const playerAudio={paused:!playerPath,ended:false,currentTime:12,pause(){events.push('pause')}};const playerEligible=p=>byPath.has(p);function resetQueueOrder(){events.push('reset-order')}function startTrack(path,newQueue){events.push(['start',path,newQueue]);}function resumePlayer(){events.push('resume')}function updateSelectionUI(){if(playerPreviewPath&&!selectedPaths.has(playerPreviewPath))dismissTrackPreview()}"+
+    display+stage+toggle+click+queueLogic+
+    ";return {prepareTrack,dismissTrackPreview,toggleMusic,click:(path,mod={})=>activateCard(path,{preventDefault(){},stopPropagation(){},...mod}),state:()=>({path:playerPath,preview:playerPreviewPath,shown:displayedPlayerPath(),queue:playerQueue.slice(),url:playerURL,request:playerRequest,time:playerAudio.currentTime,paused:playerAudio.paused,selection:[...selectedPaths],title:el('playerTitle').textContent})};"
   )(env);
-  return {...env,api};
+  return {api,events};
 }
-test('plain click stages one track without autoplay and replaces selection',()=>{
-  const x=harness();x.api.click('a');assert.deepEqual(x.api.state(),{selected:['a'],path:'a',prepared:true,queue:[]});
-  x.api.click('b');assert.deepEqual(x.api.state(),{selected:['b'],path:'b',prepared:true,queue:[]});
-  assert.deepEqual(x.events,['release','release']);
-  x.api.toggleMusic();assert.deepEqual(x.events.at(-1),['start','b',true]);
+test('normal click selects only one track; Ctrl toggles without additive plain clicks',()=>{
+  const {api}=harness();
+  api.click('b');assert.deepEqual(api.state().selection,['b']);
+  api.click('c',{ctrlKey:true});assert.deepEqual(api.state().selection,['b','c']);
+  api.click('a');assert.deepEqual(api.state().selection,['a']);assert.equal(api.state().preview,null);
 });
-test('Ctrl/Cmd toggles and Shift selects ranges without staging another track',()=>{
-  const x=harness();x.api.click('a');x.api.click('c',{ctrlKey:true});
-  assert.deepEqual(x.api.state().selected,['a','c']);assert.equal(x.api.state().path,'a');
-  x.api.click('c',{metaKey:true});assert.deepEqual(x.api.state().selected,['a']);
-  x.api.click('a');x.api.click('c',{shiftKey:true});assert.deepEqual(x.api.state().selected,['a','b','c']);
-  assert.equal(x.api.state().path,'a');x.api.click('b');assert.deepEqual(x.api.state().selected,['b']);
+test('selecting another track only changes the preview, not current playback or queue',()=>{
+  const {api,events}=harness();const before=api.state();
+  api.click('c');const after=api.state();
+  for(const key of ['path','url','request','time','paused','queue'])assert.deepEqual(after[key],before[key]);
+  assert.equal(after.preview,'c');assert.equal(after.title,'C');assert.deepEqual(events,[]);
+  api.dismissTrackPreview();assert.equal(api.state().shown,'a');assert.equal(api.state().title,'A');assert.equal(api.state().url,before.url);
 });
-test('staging preserves explicit queue and footer actions can enqueue a staged track',()=>{
-  const x=harness();x.api.setQueue(['c']);x.api.click('a');assert.deepEqual(x.api.state().queue,['c']);
-  x.api.addMusicQueue(['a']);assert.deepEqual(x.api.state().queue,['c','a']);
-  x.api.addMusicQueue(['b'],true);assert.deepEqual(x.api.state().queue,['b','c','a']);
-  x.api.toggleMusic();assert.deepEqual(x.events.at(-1),['start','a',false]);
+test('Play explicitly starts the preview and preserves the existing queue',()=>{
+  const {api,events}=harness();api.click('c');api.toggleMusic();
+  assert.deepEqual(api.state().queue,['a','c','b']);
+  assert.deepEqual(events,['reset-order',['start','c',false]]);
 });
-test('Trash is selectable without preparing an unplayable file',()=>{
-  const x=harness();x.api.click('trash');assert.deepEqual(x.api.state().selected,['trash']);assert.equal(x.api.state().path,null);
+test('without an active track selection prepares a preview and Play starts it',()=>{
+  const {api,events}=harness({playing:null,queue:[]});api.click('b');
+  assert.equal(api.state().path,null);assert.equal(api.state().preview,'b');assert.deepEqual(events,[]);
+  api.toggleMusic();assert.deepEqual(events,[['start','b',true]]);
 });
-test('footer holds fixed queue actions between track info and transport, with no popup',()=>{
+test('selection toolbar is hidden in both layouts and queue actions live in footer',()=>{
+  assert.match(html,/#selectionBar,\.detailed-mode #selectionBar\{display:none!important\}/);
   const footer=html.slice(html.indexOf('<footer id="musicPlayer"'),html.indexOf('</footer>'));
-  assert.match(footer,/class="player-track"[\s\S]*?id="bulkQueue"[\s\S]*?id="bulkPlayNext"[\s\S]*?class="player-center"/);
-  assert.doesNotMatch(html,/musicSelectionActions|musicSelectedCount|ctrlKey:!e\.shiftKey/);
-  assert.match(js,/media\.onclick=e=>activateCard\(item\.path,e\)/);
-  assert.match(js,/const selectFromCaption=e=>\{[\s\S]*?activateCard\(item\.path,e\)/);
+  assert.match(footer,/id="playerTitle"[\s\S]*?id="bulkQueue"[\s\S]*?id="bulkPlayNext"[\s\S]*?id="playerPlay"/);
+  assert.doesNotMatch(js,/playerPrepared/);
   assert.doesNotThrow(()=>new Function(js));
-});
-test('initial volume display does not recreate browser preferences after cache reset',()=>{
-  const update=slice('function applyPlayerVolume(){','function persistPlayerVolume');
-  assert.doesNotMatch(update,/localStorage/);
-  assert.match(js,/function persistPlayerVolume\(\)\{try\{localStorage\.setItem/);
 });
