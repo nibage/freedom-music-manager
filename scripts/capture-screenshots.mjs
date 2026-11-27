@@ -124,10 +124,30 @@ try {
   await page.waitForFunction(() => filtered.length === 3);
   // WAV is broadly supported in Chromium. Start playback and change filters.
   const card = page.locator('#gallery .photo').filter({hasText:'First Light'});
+  // Give even the small demo a scrollable background for the real wheel regression.
+  const backgroundScrollStart=await page.evaluate(()=>{
+    const before=window.scrollY,spacer=document.createElement('div');
+    spacer.id='modal-scroll-test-spacer';spacer.style.height='160vh';document.body.append(spacer);return before;
+  });
   const initialTop=await page.locator('#gallery').evaluate(e=>e.getBoundingClientRect().top);
   await card.locator('.video-tile').click();
   await page.waitForFunction(()=>document.getElementById('viewer').open&&currentPath?.includes('First Light')&&!selectedPaths.size&&!playerPath);
+  const lockedScroll=await page.evaluate(()=>({y:window.scrollY,width:document.documentElement.clientWidth,overflow:getComputedStyle(document.documentElement).overflowY}));
+  if(lockedScroll.overflow!=='hidden')throw Error('Modal did not lock the document');
+  await page.mouse.move(2,2);await page.mouse.wheel(0,600);
+  await page.waitForTimeout(150);
+  if(await page.evaluate(()=>window.scrollY)!==lockedScroll.y)throw Error('Background moved while viewer was open');
+
   await page.evaluate(()=>closeViewer());
+  const unlockedScroll=await page.evaluate(()=>({y:window.scrollY,width:document.documentElement.clientWidth,overflow:getComputedStyle(document.documentElement).overflowY}));
+  if(unlockedScroll.overflow==='hidden')throw Error('Closing modal did not restore scrolling');
+  if(unlockedScroll.width!==lockedScroll.width)throw Error('Modal changed scrollbar gutter width');
+  await page.mouse.move((page.viewportSize()?.width||1000)-30,(page.viewportSize()?.height||700)-100);
+  await page.mouse.wheel(0,400);
+  await page.waitForFunction(y=>window.scrollY>y,unlockedScroll.y);
+  await page.evaluate(y=>{document.getElementById('modal-scroll-test-spacer').remove();window.scrollTo(0,y)},backgroundScrollStart);
+  console.log('PASS: modal prevents background wheel scrolling and restores scrolling when closed');
+
   await card.locator('.meta').click();
   await page.waitForFunction(()=>playerPreviewPath?.includes('First Light')&&!playerPath&&playerAudio.paused&&selectedPaths.size===1);
   await card.locator('.meta').click();
