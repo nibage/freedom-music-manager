@@ -210,6 +210,7 @@ try {
   await page.locator('#queueAddResults').click();
   await page.waitForFunction(()=>playerQueue.length===9);
   await page.locator('#queueAppendResults').click();
+  await page.waitForFunction(()=>{const feedback=document.getElementById('queueFeedback'),f=feedback.getBoundingClientRect(),next=document.getElementById('queuePageNext').getBoundingClientRect();return feedback.textContent.includes('added to queue')&&f.left>=next.right&&Math.abs((f.top+f.bottom)/2-(next.top+next.bottom)/2)<3});
   await page.waitForFunction(()=>playerQueue.length===9);
   await page.locator('#queueCollectionNew').click();
   await page.locator('#collectionDialogInput').fill('CI demo collection');
@@ -260,7 +261,10 @@ try {
   await page.waitForFunction(()=>{
     const aside=document.querySelector('.aside-content').getBoundingClientRect();
     const remove=document.getElementById('removeCollection').getBoundingClientRect();
-    return remove.right<=aside.right+1 && remove.width>0 && document.getElementById('tagEmpty').hidden;
+    const tab=document.getElementById('showAlbums').getBoundingClientRect();
+     const tags=document.getElementById('showTags').getBoundingClientRect();
+     const add=document.getElementById('newCollection').getBoundingClientRect();
+     return remove.right<=aside.right+1 && remove.width>0 && [tags,add,remove].every(r=>Math.abs(r.top-tab.top)<2)&&document.getElementById('tagEmpty').hidden;
   });
   await page.locator('#showTags').click();
   await page.waitForFunction(()=>!document.getElementById('tagEmpty').hidden&&document.getElementById('albumList').hidden);

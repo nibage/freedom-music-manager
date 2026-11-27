@@ -961,7 +961,10 @@ body {padding-bottom:var(--music-player-height)}
 #queueHistoryToggle[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
 #queueList[hidden],#historyList[hidden],#historyClear[hidden],#queueClear[hidden],#queueAddResults[hidden],#queueAppendResults[hidden]{display:none!important}
 #queuePageLabel{min-width:42px;text-align:center;font-variant-numeric:tabular-nums}
-#queueFeedback {font-size:12px;color:var(--muted);min-height:1.3em}
+#queuePagination{flex-wrap:nowrap}
+#queuePagination > button,#queuePageLabel{flex:0 0 auto}
+#queueFeedback {font-size:12px;color:var(--muted);min-height:1.3em;flex:1 1 0;min-width:0;margin-left:auto;text-align:right;overflow-wrap:anywhere}
+@media(max-width:480px){#queuePagination{flex-wrap:wrap}#queueFeedback{flex:1 1 100%}}
 #viewer .stage .viewer-queue-actions {display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
 #viewer .stage .viewer-queue-actions button {position:static;transform:none;font-size:12px;padding:6px 9px}
 @media(max-width:760px){.player-transport {gap:4px;flex-wrap:wrap}#musicPlayer .player-icon{min-width:30px;padding:4px 6px}}
@@ -982,17 +985,14 @@ body {padding-bottom:var(--music-player-height)}
   #musicFilterReset,#musicSortDirection,#musicSelectAll {width:100%;min-width:0}
 }
 
-/* RC 2: keep long collection names and their actions inside narrow sidebars. */
-.shell > aside .collection-header{display:flex;flex-wrap:wrap!important;gap:4px;min-width:0;max-width:100%;overflow:visible}
-.shell > aside .collection-header .collection-switch{flex:1 1 100%!important;width:100%;max-width:100%}
-.shell > aside .collection-header .collection-tab{flex:1 1 auto;min-width:0}
-.shell > aside .collection-header .collection-actions{flex:1 1 100%;width:100%;justify-content:flex-end;margin:0}
-.shell > aside .collection-header .collection-action{height:28px!important;min-height:28px!important;max-height:28px!important;padding:3px 7px}
+/* Match Gallery: compact Collections / Tags and New / Remove in one sidebar row. */
+.shell > aside .collection-header{display:flex;flex-wrap:nowrap!important;align-items:center;gap:4px;min-width:0;max-width:100%;overflow:visible}
+.shell > aside .collection-header .collection-switch{flex:0 0 auto!important;width:max-content;max-width:none;gap:1px}
+.shell > aside .collection-header .collection-tab{flex:0 0 auto;min-width:0;font-size:11px;white-space:nowrap;padding-inline:5px!important}
+.shell > aside .collection-header .collection-actions{flex:0 0 auto;width:auto;justify-content:flex-end;margin-left:auto;gap:1px}
+.shell > aside .collection-header .collection-action{font-size:10px;height:38px!important;min-height:38px!important;max-height:38px!important;padding:4px 2px;white-space:nowrap}
 #albumList[hidden],#tagList[hidden],#tagEmpty[hidden]{display:none!important}
 @media(max-width:840px){
- .shell > aside .collection-header .collection-switch{flex:1 1 140px!important;width:auto}
- .shell > aside .collection-header .collection-actions{flex:0 1 auto;width:auto}
- .shell > aside .collection-header .collection-tab{flex:0 1 auto}
  .shell > aside > .aside-content{max-height:260px}
 }
 
@@ -1303,7 +1303,7 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
     <div class="queue-actions"><button class="btn" id="queuePlay" type="button" aria-label="Play"><span id="queuePlayIcon" aria-hidden="true"></span><span id="queuePlayText">Play</span></button><button class="btn" id="queueClear" type="button">Clear queue</button><button class="btn" id="queueAddResults" type="button" title="Replace the queue with all playable tracks matching the current library filters">Use current results</button><button class="btn" id="queueAppendResults" type="button" title="Append all playable tracks matching the current library filters, without duplicates">Append current results</button><button class="btn" id="historyClear" type="button" hidden>Clear history</button><span id="queueCount" class="small"></span><button class="btn" id="queueHistoryToggle" type="button" aria-pressed="false" aria-controls="queueList historyList" title="Show listening history">History</button></div>
     <div id="queueList" class="queue-list" role="listbox" aria-label="Playback queue"></div>
     <div id="historyList" class="queue-list" role="listbox" aria-label="Listening history" hidden></div>
-    <div class="queue-actions"><button class="btn" id="queuePagePrev" type="button">Previous page</button><span id="queuePageLabel" class="small"></span><button class="btn" id="queuePageNext" type="button">Next page</button></div>
+    <div class="queue-actions" id="queuePagination"><button class="btn" id="queuePagePrev" type="button">Previous page</button><span id="queuePageLabel" class="small"></span><button class="btn" id="queuePageNext" type="button">Next page</button><div id="queueFeedback" role="status" aria-live="polite"></div></div>
     <section id="queueCollectionPanel" aria-label="Queue collections and tags">
       <div id="queueCollectionControls">
         <div class="collection-switch" role="group" aria-label="Queue collection type"><button id="queueCollections" class="collection-tab active" type="button" aria-pressed="true">Collections</button><button id="queueTags" class="collection-tab" type="button" aria-pressed="false">Tags</button></div>
@@ -1312,7 +1312,6 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
       </div>
       <div class="queue-actions"><button class="btn" id="playlistLoad" type="button">Use collection</button><button class="btn" id="playlistAppend" type="button">Append collection</button></div>
     </section>
-    <div id="queueFeedback" aria-live="polite"></div>
   </div>
 </dialog>
 <dialog id="viewer">
