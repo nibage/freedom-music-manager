@@ -189,6 +189,35 @@ try {
   await page.setViewportSize({width:390,height:844});
   await page.waitForFunction(()=>document.documentElement.scrollWidth<=window.innerWidth+2);
   await snap('mobile-light');
+  // Verify a real browser reset after screenshots (the demo filesystem is mocked).
+  await page.setViewportSize({width:2048,height:1080});
+  await page.evaluate(async()=>{
+    await saveQueue.catch(()=>{});
+    await uiPrefsOp('readwrite',store=>store.put({id:'layout',value:'detailed'}));
+    await prefsOp('readwrite',store=>store.put({id:'stale',name:'Ghost',lastUsed:42,handle:{kind:'directory'}}));
+    for(const key of [THEME_KEY,LEGACY_LIBRARY_NAME_KEY,FOLDER_LOCK_KEY,COLLECTION_OPERATOR_KEY,MUSIC_SORT_KEY,playerVolumeKey])
+      localStorage.setItem(key,'reset-test');
+    localStorage.setItem('unrelated-app-test','keep');
+  });
+  await page.waitForFunction(()=>!librarySwitching&&!scanInProgress&&!thumbResetting&&!deletingMedia&&!pendingSaves);
+  await page.locator('#clearCache').click();
+  await page.locator('#collectionDialogCancel').click();
+  if(await page.evaluate(()=>localStorage.getItem(MUSIC_SORT_KEY))!=='reset-test')throw Error('Cancelled reset modified preferences');
+  await page.locator('#clearCache').click();
+  await Promise.all([
+    page.waitForNavigation({waitUntil:'domcontentloaded'}),
+    page.locator('#collectionDialogAccept').click()
+  ]);
+  const reset=await page.evaluate(async()=>({
+    keys:[THEME_KEY,LEGACY_LIBRARY_NAME_KEY,FOLDER_LOCK_KEY,COLLECTION_OPERATOR_KEY,MUSIC_SORT_KEY,playerVolumeKey].map(k=>localStorage.getItem(k)),
+    unrelated:localStorage.getItem('unrelated-app-test'),
+    records:await prefsOp('readonly',store=>store.getAll()),
+    layout:await uiPrefsOp('readonly',store=>store.get('layout'))
+  }));
+  if(reset.keys.some(v=>v!==null)||reset.unrelated!=='keep'||reset.records.length||reset.layout!==undefined)
+    throw Error('Browser reset did not clear the application storage correctly');
+  if(!await page.locator('#recentFolders').isHidden())throw Error('Forgotten library selector is still visible');
+  console.log('PASS: clear cache resets actual browser storage including sorting and volume, without touching unrelated data');
   if (errors.length) throw new Error('Browser JavaScript errors: '+errors.join('; '));
   await context.close();
 } finally {
