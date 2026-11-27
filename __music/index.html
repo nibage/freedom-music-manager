@@ -1016,12 +1016,12 @@ body {padding-bottom:var(--music-player-height)}
     <h1>♫ Freedom Music Manager</h1><span id="results" class="results-header" aria-live="polite">Choose a media library folder.</span><span class="small" id="libraryName" hidden aria-hidden="true">No library selected</span>
   </div>
   <div class="filters">
+    <input id="query" type="search" placeholder="Search… (/)" title="Search title, artist, album, genre, filename or tag; press / to focus" aria-label="Search media">
     <select id="folder" aria-label="Filter by folder"><option value="">All folders</option></select>
     <label class="folder-lock" id="folderLockLabel" title="Lock folder: keep the selected folder while browsing collections and tags. In OR mode, folder is temporarily ignored but remembered.">
       <input id="folderLock" type="checkbox" checked aria-label="Lock selected folder" />
       <span class="folder-lock-icons" aria-hidden="true"><span id="folderLockIcon">🔒</span><span>📁</span></span>
     </label>
-    <input id="query" type="search" placeholder="Search… (/)" title="Search title, artist, album, genre, filename or tag; press / to focus" aria-label="Search media">
     <select id="kind" aria-label="Audio format"><option value="">All audio formats</option><option value="mp3">MP3</option><option value="flac">FLAC</option><option value="wav">WAV</option><option value="ogg">OGG</option><option value="m4a">M4A</option><option value="aac">AAC</option><option value="opus">OPUS</option><option value="aiff">AIFF</option><option value="aif">AIF</option><option value="alac">ALAC</option><option value="wma">WMA</option></select>
     <button class="btn" id="viewBack" type="button" disabled title="Return to the previous filter results" aria-label="Back to previous results">← Back</button>
     <button class="btn layout-toggle" id="layoutToggle" type="button" aria-pressed="false" title="Switch between classic cards and detailed track list. Your choice is saved.">☰ Detailed View</button>
