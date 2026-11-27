@@ -224,7 +224,7 @@ try {
   const queueBounds=await page.locator('#musicQueueDialog').boundingBox();
   const queueListHeight=(await page.locator('#queueList').boundingBox()).height;
   await page.locator('#queueList .queue-row').first().locator('.queue-track-label').click();
-  if(!await page.locator('#queueList .queue-row').first().evaluate(row=>row.classList.contains('is-selected')))throw Error('Queue row not selected');
+  if(await page.locator('#queueList .queue-row.is-selected').count())throw Error('Queue row must not be selectable');
   await page.locator('#queueHistoryToggle').click();
   await page.waitForFunction(()=>!document.getElementById('historyList').hidden&&document.getElementById('queueList').hidden&&!document.getElementById('historyClear').hidden);
   if(await page.locator('#queueHistoryToggle').textContent()!=='Queue')throw Error('Missing return to queue');
@@ -236,6 +236,10 @@ try {
   await page.locator('#historyList .queue-row').first().locator('.queue-track-label').click();
   if(!await page.locator('#historyList .queue-row').first().evaluate(row=>row.classList.contains('is-selected')))throw Error('History row not selected');
   if(await page.locator('#historyList .queue-row').count()<1)throw Error('Listening history not displayed');
+  await page.keyboard.press('Control+a');
+  await page.waitForFunction(()=>historySelectedEntries.size===playerHistory.length);
+  if(await page.locator('#historyList .queue-row button').count())throw Error('Unexpected individual history play buttons');
+  await page.locator('#historyAppendSelection').click();
   await page.locator('#queueHistoryToggle').click();
   await page.waitForFunction(()=>!document.getElementById('queueList').hidden&&document.getElementById('historyList').hidden&&document.getElementById('historyClear').hidden);
   console.log('PASS: history replaces queue list in the same dialog');

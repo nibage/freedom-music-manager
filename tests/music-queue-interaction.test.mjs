@@ -11,8 +11,8 @@ function harness({panel='queue',playing=false,selected=null,historySelected=null
     startTrack:(p,n)=>events.push(['start',p,n]),resetQueueOrder:()=>events.push('reset'),updatePlayerControls:()=>events.push('update')};
   const logic=js.slice(js.indexOf('function queueInsert('),js.indexOf('function shuffleUpcoming('));
   const api=new Function('env','const {el,playerEligible,playerAudio,startTrack,resetQueueOrder,updatePlayerControls}=env;'+
-    "const QUEUE_PAGE_SIZE=2;let queuePanel=env.panel,queuePage=0,historyPage=0,queueSelectedPath=env.selected,playerPath='a',playerQueue=['a','b','c'],playerHistory=[{path:'missing'},{path:'h'},{path:'i'}],historySelectedEntry=env.historySelected?playerHistory.find(e=>e.path===env.historySelected):null,playerLoading=false,playerWantsPlay=false,playerOncePaths=null,playerSelectionKey=null;"+
-    logic+source+";return {queueMembershipAction,queuePanelTarget,toggleQueuePanelPlayback,updateQueuePlayButton,queue:()=>playerQueue.slice()};")(env);
+    "const QUEUE_PAGE_SIZE=2;let queuePanel=env.panel,queuePage=0,historyPage=0,playerPath='a',playerQueue=['a','b','c'],playerHistory=[{path:'missing'},{path:'h'},{path:'i'}],historySelectedEntries=new Set(playerHistory.filter(e=>e.path===env.historySelected)),historySelectionAnchor=null,historyPlaybackSelection=null,root={},playerURL=null,playerLoading=false,playerWantsPlay=false,playerOncePaths=null,playerSelectionKey=null;"+
+    "function clearSelection(){}function startSelectedPlayback(paths,once){env.events.push(['once',paths,once])}function toggleActualPlayback(){env.events.push('resume')}"+logic+source+";return {queueMembershipAction,queuePanelTarget,toggleQueuePanelPlayback,updateQueuePlayButton,historyPaths,historyRange,queue:()=>playerQueue.slice()};")(env);
   return {...env,api};
 }
 test('hover membership adds missing or removes fully queued selections, including the current track',()=>{
@@ -21,12 +21,12 @@ test('hover membership adds missing or removes fully queued selections, includin
   assert.deepEqual(api.queueMembershipAction(['a','b'],['a','b'],'a',playerEligible),{mode:'remove',selected:['a','b']});
   assert.deepEqual(api.queueMembershipAction(['a'],['a'],'a',playerEligible).selected,['a']);
 });
-test('idle playback uses selected queue row instead of library preview',()=>{
-  const {api,events}=harness({selected:'b'});api.toggleQueuePanelPlayback();assert.deepEqual(events,[['start','b',false]]);
+test('idle playback starts entire queue rather than a selected row',()=>{
+  const {api,events}=harness({selected:'b'});api.toggleQueuePanelPlayback();assert.deepEqual(events,[['start','a',false]]);
 });
-test('history playback selects playable row and preserves existing queue',()=>{
+test('history playback uses all playable entries and preserves existing queue',()=>{
   const {api,events}=harness({panel:'history'});assert.equal(api.queuePanelTarget(),'h');api.toggleQueuePanelPlayback();
-  assert.deepEqual(api.queue(),['a','h','b','c']);assert.deepEqual(events,['reset',['start','h',false]]);
+  assert.deepEqual(api.queue(),['a','b','c']);assert.deepEqual(events,[['once',['h','i'],true]]);
 });
 test('playing audio pauses regardless of panel and button reflects playback',()=>{
   const {api,events,label}=harness({panel:'history',playing:true});api.updateQueuePlayButton();assert.equal(label.textContent,'Pause');
@@ -55,3 +55,6 @@ test('queue toolbar, collection manager and preview have the requested controls'
   assert.doesNotMatch(html,/id="viewerPlayer(?:Title|Artist)"/);
   assert.match(js,/el\('queueClear'\)\.onclick=\(\)=>\{stopMusic\(\);clearSelection\(\)/);
 });
+
+test('history selection plays just chosen tracks in list order, without duplicates',()=>{const {api,events}=harness({panel:'history',historySelected:'i'});api.toggleQueuePanelPlayback();assert.deepEqual(events,[['once',['i'],true]]);const entries=[{path:'b'},{path:'a'},{path:'b'},{path:'missing'}];assert.deepEqual(api.historyPaths(entries,new Set(entries),p=>p!=='missing'),['b','a']);assert.deepEqual(api.historyRange(entries,entries[2],entries[0]),entries.slice(0,3));});
+test('history controls are multiselect and queue has no row selection',()=>{assert.match(html,/id="historyList"[^>]*aria-multiselectable="true"/);assert.match(js,/historySelectedEntries=new Set\(playerHistory\)/);assert.match(js,/function initHistorySelection\(\)[\s\S]*?setPointerCapture/);assert.match(html,/id="historyClear"[\s\S]*?id="historyUseSelection"[\s\S]*?id="historyAppendSelection"/);assert.match(js,/row\.setAttribute\('role','listitem'\)/);});

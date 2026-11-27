@@ -942,7 +942,10 @@ body {padding-bottom:var(--music-player-height)}
 #musicQueueDialog .queue-body {padding:18px;display:flex;flex-direction:column;gap:12px;height:100%;min-height:0;box-sizing:border-box;overflow:auto}
 #musicQueueDialog .queue-body > :not(.queue-list){flex-shrink:0}
 #musicQueueDialog .queue-list{flex:1 1 0;min-height:80px;max-height:none;scrollbar-gutter:stable}
-#musicQueueDialog .queue-row{cursor:pointer}
+#musicQueueDialog #queueList .queue-row{cursor:default}
+#musicQueueDialog #historyList .queue-row{cursor:pointer;user-select:none}
+#playlistLoad{width:128px;min-width:128px}
+#playlistAppend{width:150px;min-width:150px}
 #musicQueueDialog .queue-row.is-selected{background:var(--selection-bg);box-shadow:inset 0 0 0 1px var(--selection-color)}
 #musicQueueDialog .queue-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .queue-heading,.queue-actions,.queue-playlist,.queue-row {display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:wrap}
@@ -958,8 +961,8 @@ body {padding-bottom:var(--music-player-height)}
 .queue-number {min-width:25px;text-align:right;color:var(--muted);font-size:11px}
 .queue-empty {padding:12px;color:var(--muted);font-size:13px}
 #queueHistoryToggle{margin-left:auto;white-space:nowrap}
-#queueHistoryToggle[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
-#queueList[hidden],#historyList[hidden],#historyClear[hidden],#queueClear[hidden],#queueAddResults[hidden],#queueAppendResults[hidden]{display:none!important}
+#queueHistoryToggle[aria-pressed=true]{border-color:var(--control-border);color:var(--text);box-shadow:none}
+#queueList[hidden],#historyList[hidden],#historyClear[hidden],#queueClear[hidden],#queueAddResults[hidden],#queueAppendResults[hidden],#historyUseSelection[hidden],#historyAppendSelection[hidden]{display:none!important}
 #queuePageLabel{min-width:42px;text-align:center;font-variant-numeric:tabular-nums}
 #queuePagination{flex-wrap:nowrap}
 #queuePagination > button,#queuePageLabel{flex:0 0 auto}
@@ -1300,9 +1303,9 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
 <dialog id="musicQueueDialog" aria-labelledby="musicQueueTitle">
   <div class="queue-body">
     <div class="queue-heading"><h2 id="musicQueueTitle">Queue &amp; music collections</h2><button class="btn" id="queueClose" type="button" aria-label="Close queue">✕</button></div>
-    <div class="queue-actions"><button class="btn" id="queuePlay" type="button" aria-label="Play"><span id="queuePlayIcon" aria-hidden="true"></span><span id="queuePlayText">Play</span></button><button class="btn" id="queueClear" type="button">Clear queue</button><button class="btn" id="queueAddResults" type="button" title="Replace the queue with all playable tracks matching the current library filters">Use current results</button><button class="btn" id="queueAppendResults" type="button" title="Append all playable tracks matching the current library filters, without duplicates">Append current results</button><button class="btn" id="historyClear" type="button" hidden>Clear history</button><span id="queueCount" class="small"></span><button class="btn" id="queueHistoryToggle" type="button" aria-pressed="false" aria-controls="queueList historyList" title="Show listening history">History</button></div>
-    <div id="queueList" class="queue-list" role="listbox" aria-label="Playback queue"></div>
-    <div id="historyList" class="queue-list" role="listbox" aria-label="Listening history" hidden></div>
+    <div class="queue-actions"><button class="btn" id="queuePlay" type="button" aria-label="Play"><span id="queuePlayIcon" aria-hidden="true"></span><span id="queuePlayText">Play</span></button><button class="btn" id="queueClear" type="button">Clear queue</button><button class="btn" id="queueAddResults" type="button" title="Replace the queue with all playable tracks matching the current library filters">Use current results</button><button class="btn" id="queueAppendResults" type="button" title="Append all playable tracks matching the current library filters, without duplicates">Append current results</button><button class="btn" id="historyClear" type="button" hidden>Clear history</button><button class="btn" id="historyUseSelection" type="button" hidden disabled>Use selection as queue</button><button class="btn" id="historyAppendSelection" type="button" hidden disabled>Append selection to queue</button><span id="queueCount" class="small"></span><button class="btn" id="queueHistoryToggle" type="button" aria-pressed="false" aria-controls="queueList historyList" title="Show listening history">History</button></div>
+    <div id="queueList" class="queue-list" role="list" aria-label="Playback queue"></div>
+    <div id="historyList" class="queue-list" role="listbox" aria-multiselectable="true" aria-label="Listening history" tabindex="0" hidden></div>
     <div class="queue-actions" id="queuePagination"><button class="btn" id="queuePagePrev" type="button">Previous page</button><span id="queuePageLabel" class="small"></span><button class="btn" id="queuePageNext" type="button">Next page</button><div id="queueFeedback" role="status" aria-live="polite"></div></div>
     <section id="queueCollectionPanel" aria-label="Queue collections and tags">
       <div id="queueCollectionControls">
@@ -2464,7 +2467,7 @@ function remapMusicPaths(paths,moves){return [...new Set(paths.map(p=>moves.get(
 /* END MUSIC PLAYER LOGIC */
 let playerPath=null,playerQueue=[],playerURL=null,playerRequest=0,playerLoading=false,playerWantsPlay=false,playerSeekActive=false;
 let lastPlayerVolume=.75,playerPreviewPath=null,playerSelectionKey=null,playerOncePaths=null,selectionPlayPrompt=false;
-let playerRepeat='off',playerShuffle=false,playerOriginalOrder=[],playerHistory=[],musicCollectionsWritable=false,musicHistoryRequest=-1,queuePage=0,historyPage=0,queuePanel='queue',queueSelectedPath=null,historySelectedEntry=null,queueCollectionMode='albums';
+let playerRepeat='off',playerShuffle=false,playerOriginalOrder=[],playerHistory=[],musicCollectionsWritable=false,musicHistoryRequest=-1,queuePage=0,historyPage=0,queuePanel='queue',historySelectedEntries=new Set(),historySelectionAnchor=null,historyPlaybackSelection=null,queueCollectionMode='albums';
 const playerAudio=el('bigVideo');
 const playerVolumeKey='freedom-music-volume:'+GALLERY_URL;
 const playerEligible=p=>byPath.has(p)&&!trash.has(p);
@@ -2526,7 +2529,7 @@ function releasePlayerSource(){
 }
 function stopMusic(clear=true){
   if(playerOncePaths)playerPath=null;
-  playerOncePaths=null;playerSelectionKey=null;playerPreviewPath=null;++playerRequest;playerLoading=false;playerWantsPlay=false;playerSeekActive=false;releasePlayerSource();
+  historyPlaybackSelection=null;playerOncePaths=null;playerSelectionKey=null;playerPreviewPath=null;++playerRequest;playerLoading=false;playerWantsPlay=false;playerSeekActive=false;releasePlayerSource();
   if(clear){playerPath=null;playerQueue=[];resetQueueOrder()}
   queueChanged();
   updatePlayerTrack();updatePlayerTime();
@@ -2549,7 +2552,7 @@ function dismissTrackPreview(){
 }
 async function startTrack(path,newQueue=true,keepPreview=false){
   if(!playerEligible(path)||deletingMedia||librarySwitching)return;
-  if(newQueue){playerSelectionKey=null;playerOncePaths=null;}
+  if(newQueue){playerSelectionKey=null;playerOncePaths=null;historyPlaybackSelection=null;}
   if(!keepPreview||playerPreviewPath===path)playerPreviewPath=null;
   if(path===playerPath&&(playerURL||playerLoading)){
     updatePlayerTrack();
@@ -2584,6 +2587,7 @@ function selectionPlaybackPending(paths){
   return paths.length>0&&(playerSelectionKey!==selectionPlaybackKey(paths)||!playerPath||!playerURL&&!playerLoading||playerAudio.ended);
 }
 function startSelectedPlayback(paths,once=false){
+  historyPlaybackSelection=null;
   if(!paths.length||deletingMedia||librarySwitching)return;
   // Play once uses its own finite sequence, leaving the persistent queue and repeat settings intact.
   if(once)playerOncePaths=paths.slice();
@@ -2724,7 +2728,7 @@ function collectionNameForImport(name,paths,existing){
   }throw Error('Could not choose a safe imported collection name');
 }
 async function loadMusicCollections(){
-  playerHistory=[];musicCollectionsWritable=false;musicHistoryRequest=-1;queuePage=0;historyPage=0;queuePanel='queue';queueSelectedPath=null;historySelectedEntry=null;
+  playerHistory=[];musicCollectionsWritable=false;musicHistoryRequest=-1;queuePage=0;historyPage=0;queuePanel='queue';historySelectedEntries=new Set();historySelectionAnchor=null;historyPlaybackSelection=null;
   try{
     const dir=await getMetaDir(false);
     if(dir&&await hasFile(dir,MUSIC_HISTORY_FILE)){
@@ -2760,7 +2764,7 @@ function recordListening(){
   void saveMusicCollections();if(el('musicQueueDialog').open&&queuePanel==='history')renderHistory();
 }
 function resetQueueOrder(){playerShuffle=false;playerOriginalOrder=[]}
-function setPlayerQueue(paths){playerOncePaths=null;playerSelectionKey=null;playerQueue=[...new Set(paths)];resetQueueOrder();queuePage=0;queueChanged()}
+function setPlayerQueue(paths){historyPlaybackSelection=null;playerOncePaths=null;playerSelectionKey=null;playerQueue=[...new Set(paths)];resetQueueOrder();queuePage=0;queueChanged()}
 function currentQueueSnapshot(path){
   playerQueue=snapshotTracks(filtered,path,playerEligible);queuePage=0;
   if(playerShuffle){playerOriginalOrder=playerQueue.slice();playerQueue=shuffleUpcoming(playerQueue,path)}else playerOriginalOrder=[];
@@ -2841,28 +2845,32 @@ function toggleViewerQueueMembership(){
   queueNotice(selected.length+' track(s) removed from queue.');
 }
 // The dialog Play button controls actual playback, not the library preview.
+// History selection is entry-based, across pages; a queue contains unique playable paths.
+function historyPaths(entries,selection,eligible){
+  return [...new Set(entries.filter(entry=>!selection.size||selection.has(entry)).map(entry=>entry.path).filter(eligible))];
+}
+function selectedHistoryPaths(){
+  return historySelectedEntries.size?historyPaths(playerHistory,historySelectedEntries,playerEligible):[];
+}
 function queuePanelPaths(){
-  return queuePanel==='history'?playerHistory.slice(historyPage*QUEUE_PAGE_SIZE,(historyPage+1)*QUEUE_PAGE_SIZE).map(e=>e.path):playerQueue.slice(queuePage*QUEUE_PAGE_SIZE,(queuePage+1)*QUEUE_PAGE_SIZE);
+  return queuePanel==='history'?historyPaths(playerHistory,historySelectedEntries,playerEligible):playerQueue.filter(playerEligible);
 }
-function queuePanelTarget(){
-  const paths=queuePanelPaths(),selected=queuePanel==='history'?historySelectedEntry?.path:queueSelectedPath;
-  return selected&&paths.includes(selected)&&playerEligible(selected)?selected:paths.find(playerEligible)||null;
-}
+function queuePanelTarget(){return queuePanelPaths()[0]||null}
 function queueTransportPlaying(){
   return !!playerPath&&(playerLoading?playerWantsPlay:!playerAudio.paused&&!playerAudio.ended);
+}
+function updateHistorySelectionButtons(){
+  const disabled=!root||!selectedHistoryPaths().length;
+  el('historyUseSelection').disabled=disabled;el('historyAppendSelection').disabled=disabled;
 }
 function updateQueuePlayButton(){
   const button=el('queuePlay'),playing=queueTransportPlaying();
   el('queuePlayText').textContent=playing?'Pause':'Play';button.setAttribute('aria-label',playing?'Pause':'Play');
-  button.disabled=!playing&&!queuePanelTarget();
+  button.disabled=!playing&&!queuePanelTarget();updateHistorySelectionButtons();
 }
 function playQueuePanelTrack(path){
   if(!playerEligible(path))return;
-  playerOncePaths=null;playerSelectionKey=null;
-  // Replay history without replacing an existing queue.
-  if(queuePanel==='history'&&!playerQueue.includes(path)){
-    playerQueue=queueInsert(playerQueue,[path],playerPath,true,playerEligible);resetQueueOrder();
-  }
+  playerOncePaths=null;historyPlaybackSelection=null;playerSelectionKey=null;clearSelection();
   void startTrack(path,false);
 }
 function toggleQueuePanelPlayback(){
@@ -2870,21 +2878,71 @@ function toggleQueuePanelPlayback(){
     if(playerLoading)playerWantsPlay=false;else playerAudio.pause();
     updatePlayerControls();return;
   }
-  const path=queuePanelTarget();if(path)playQueuePanelTrack(path);
+  const paths=queuePanelPaths();if(!paths.length)return;
+  if(queuePanel==='history'){
+    if(playerOncePaths&&historyPlaybackSelection===historySelectedEntries&&playerPath&&playerURL&&!playerAudio.ended){toggleActualPlayback();return}
+    clearSelection();startSelectedPlayback(paths,true);historyPlaybackSelection=historySelectedEntries;return;
+  }
+  if(!playerOncePaths&&paths.includes(playerPath)&&playerURL&&!playerAudio.ended){toggleActualPlayback();return}
+  playQueuePanelTrack(paths[0]);
 }
-function selectQueueRow(row,path,entry=null){
-  const selected=entry?historySelectedEntry===entry:queueSelectedPath===path;
-  row.className+=(selected?' is-selected':'');row.tabIndex=0;
-  row.setAttribute('aria-selected',String(selected));row.setAttribute('role','option');
-  const select=()=>{
-    if(entry)historySelectedEntry=entry;else queueSelectedPath=path;
-    for(const node of row.parentElement.querySelectorAll('.queue-row')){
-      const active=node===row;node.classList.toggle('is-selected',active);node.setAttribute('aria-selected',String(active));
-    }
-    updateQueuePlayButton();
-  };
-  row.onclick=e=>{if(!e.target.closest('button'))select()};
-  row.onkeydown=e=>{if(e.target===row&&(e.key==='Enter'||e.key===' ')){e.preventDefault();select()}};
+function historyRange(entries,from,to){
+  const a=entries.indexOf(from),b=entries.indexOf(to);
+  return a<0||b<0?[to]:entries.slice(Math.min(a,b),Math.max(a,b)+1);
+}
+function updateHistorySelectionUI(){
+  const host=el('historyList');
+  for(const row of host.querySelectorAll('.queue-row')){
+    const selected=historySelectedEntries.has(row.historyEntry);row.classList.toggle('is-selected',selected);row.setAttribute('aria-selected',String(selected));
+  }
+  updateQueuePlayButton();
+}
+function selectHistoryEntry(entry,event){
+  const additive=event.ctrlKey||event.metaKey;
+  if(event.shiftKey&&historySelectionAnchor){
+    historySelectedEntries=new Set([...(additive?historySelectedEntries:[]),...historyRange(playerHistory,historySelectionAnchor,entry)]);
+  }else if(additive){
+    const next=new Set(historySelectedEntries);if(next.has(entry))next.delete(entry);else next.add(entry);historySelectedEntries=next;historySelectionAnchor=entry;
+  }else{
+    historySelectedEntries=new Set(historySelectedEntries.size===1&&historySelectedEntries.has(entry)?[]:[entry]);historySelectionAnchor=entry;
+  }
+  updateHistorySelectionUI();
+}
+function selectHistoryRow(row,entry){
+  row.historyEntry=entry;row.tabIndex=0;
+  row.className+=(historySelectedEntries.has(entry)?' is-selected':'');row.setAttribute('aria-selected',String(historySelectedEntries.has(entry)));row.setAttribute('role','option');
+  row.onclick=e=>selectHistoryEntry(entry,e);
+  row.onkeydown=e=>{if(e.target===row&&(e.key==='Enter'||e.key===' ')){e.preventDefault();selectHistoryEntry(entry,e)}};
+}
+function initHistorySelection(){
+  const host=el('historyList'),dialog=el('musicQueueDialog');let drag=null,suppressClick=false;
+  host.addEventListener('pointerdown',e=>{
+    if(e.button!==0||!(e.ctrlKey||e.metaKey))return;
+    const row=e.target.closest('.queue-row');if(!row?.historyEntry)return;
+    drag={id:e.pointerId,x:e.clientX,y:e.clientY,entry:row.historyEntry,initial:new Set(historySelectedEntries),active:false};suppressClick=false;
+  });
+  host.addEventListener('pointermove',e=>{
+    if(!drag||drag.id!==e.pointerId)return;
+    if(!drag.active&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<5)return;
+    if(!drag.active){drag.active=true;host.setPointerCapture(e.pointerId)}
+    e.preventDefault();
+    const row=document.elementFromPoint(e.clientX,e.clientY)?.closest('#historyList .queue-row');
+    if(!row?.historyEntry)return;
+    historySelectedEntries=new Set([...drag.initial,...historyRange(playerHistory,drag.entry,row.historyEntry)]);historySelectionAnchor=drag.entry;updateHistorySelectionUI();
+  });
+  const finish=e=>{if(!drag||drag.id!==e.pointerId)return;suppressClick=drag.active;drag=null;if(host.hasPointerCapture(e.pointerId))host.releasePointerCapture(e.pointerId);if(suppressClick)setTimeout(()=>{suppressClick=false},0)};
+  host.addEventListener('pointerup',finish);host.addEventListener('pointercancel',finish);
+  host.addEventListener('click',e=>{if(suppressClick){e.preventDefault();e.stopImmediatePropagation();suppressClick=false}},true);
+  dialog.addEventListener('keydown',e=>{
+    if(queuePanel!=='history'||!(e.ctrlKey||e.metaKey)||e.key.toLowerCase()!=='a'||e.target.closest('input,textarea,select,[contenteditable=true]'))return;
+    e.preventDefault();e.stopPropagation();historySelectedEntries=new Set(playerHistory);updateHistorySelectionUI();
+  });
+}
+function useHistorySelection(append=false){
+  const paths=selectedHistoryPaths();if(!paths.length||!root)return;
+  if(append){appendQueueMembership(paths);return}
+  if(playerOncePaths||playerPath&&!paths.includes(playerPath))stopMusic();
+  clearSelection();setPlayerQueue(paths);queueNotice('Queue replaced with selected history tracks.');
 }
 function renderQueuePagination(page,count){
   const pages=Math.max(1,Math.ceil(count/QUEUE_PAGE_SIZE));
@@ -2897,21 +2955,20 @@ function renderQueue(){
   const history=queuePanel==='history',toggle=el('queueHistoryToggle');
   el('queueList').hidden=history;el('historyList').hidden=!history;el('historyClear').hidden=!history;
   el('queueClear').hidden=history;el('queueAddResults').hidden=history;el('queueAppendResults').hidden=history;
-  el('queueCollectionPanel').hidden=history;
+  el('queueCollectionPanel').hidden=history;el('historyUseSelection').hidden=el('historyAppendSelection').hidden=!history;
   toggle.textContent=history?'Queue':'History';toggle.setAttribute('aria-pressed',String(history));
   toggle.title=history?'Return to playback queue':'Show listening history';
   const n=playerQueue.length;
   el('queueCount').textContent=history?playerHistory.length+' entries · '+playerHistory.filter(e=>playerEligible(e.path)).length+' playable':n+' entries · '+playerQueue.filter(playerEligible).length+' playable';
   el('queueClear').disabled=!n&&!playerPath&&!selectedPaths.size;el('queueAddResults').disabled=el('queueAppendResults').disabled=!root||!filtered.some(x=>playerEligible(x.path));
   if(history){renderHistory();updatePlaylistButtons();return}
-  if(!playerQueue.includes(queueSelectedPath))queueSelectedPath=null;
   const list=el('queueList');list.replaceChildren();queuePage=renderQueuePagination(queuePage,n);updateQueuePlayButton();
   if(!n){const empty=document.createElement('div');empty.className='queue-empty';empty.textContent='Queue is empty. Add tracks from the library or load a collection.';list.append(empty)}
   for(let i=queuePage*QUEUE_PAGE_SIZE;i<Math.min(n,(queuePage+1)*QUEUE_PAGE_SIZE);i++){
     const path=playerQueue[i],row=document.createElement('div');row.className='queue-row'+(path===playerPath?' is-current':'');
     const number=document.createElement('span');number.className='queue-number';number.textContent=String(i+1);
     const current=path===playerPath;row.append(number,queueTrackLabel(path,current?'Current track':''));
-    selectQueueRow(row,path);
+    row.setAttribute('role','listitem');
     row.append(queueButton('▶','Play '+path,()=>playQueuePanelTrack(path),!playerEligible(path)),
       queueButton('↑','Move up',()=>{playerQueue=moveQueueEntry(playerQueue,i,-1,playerPath);resetQueueOrder();queueChanged()},current||i===0||playerQueue[i-1]===playerPath),
       queueButton('↓','Move down',()=>{playerQueue=moveQueueEntry(playerQueue,i,1,playerPath);resetQueueOrder();queueChanged()},current||i===n-1||playerQueue[i+1]===playerPath),
@@ -2993,18 +3050,19 @@ async function removeQueueCollection(){
 function renderHistory(){
   if(queuePanel!=='history')return;
   const host=el('historyList');host.replaceChildren();el('historyClear').disabled=!playerHistory.length||!musicCollectionsWritable;
-  if(!playerHistory.includes(historySelectedEntry))historySelectedEntry=null;
+  const live=new Set(playerHistory);for(const entry of historySelectedEntries)if(!live.has(entry))historySelectedEntries.delete(entry);
+  if(!live.has(historySelectionAnchor))historySelectionAnchor=null;
   el('queueCount').textContent=playerHistory.length+' entries · '+playerHistory.filter(e=>playerEligible(e.path)).length+' playable';
   historyPage=renderQueuePagination(historyPage,playerHistory.length);updateQueuePlayButton();
   if(!playerHistory.length){const empty=document.createElement('div');empty.className='queue-empty';empty.textContent='No listening history.';host.append(empty)}
   for(const entry of playerHistory.slice(historyPage*QUEUE_PAGE_SIZE,(historyPage+1)*QUEUE_PAGE_SIZE)){
     const row=document.createElement('div');row.className='queue-row';
-    selectQueueRow(row,entry.path,entry);
-    row.append(queueTrackLabel(entry.path,new Date(entry.at).toLocaleString()),queueButton('▶','Play '+entry.path,()=>playQueuePanelTrack(entry.path),!playerEligible(entry.path)));host.append(row);
+    selectHistoryRow(row,entry);
+    row.append(queueTrackLabel(entry.path,new Date(entry.at).toLocaleString()));host.append(row);
   }
 }
 function openMusicQueue(){
-  el('queueFeedback').textContent='';queuePanel='queue';historyPage=0;queueSelectedPath=null;historySelectedEntry=null;
+  el('queueFeedback').textContent='';queuePanel='queue';historyPage=0;historySelectedEntries=new Set();historySelectionAnchor=null;historyPlaybackSelection=null;
   const at=playerQueue.indexOf(playerPath);if(at>=0)queuePage=Math.floor(at/QUEUE_PAGE_SIZE);
   renderPlaylistOptions();renderQueue();el('musicQueueDialog').showModal();
 }
@@ -3020,9 +3078,10 @@ function initMusicCollections(){
   el('playerQueueButton').onclick=openMusicQueue;
   el('queueClose').onclick=()=>el('musicQueueDialog').close();
   el('queuePlay').onclick=toggleQueuePanelPlayback;
+  initHistorySelection();el('historyUseSelection').onclick=()=>useHistorySelection();el('historyAppendSelection').onclick=()=>useHistorySelection(true);
   el('queueAddResults').onclick=()=>{const paths=filtered.map(x=>x.path).filter(playerEligible);if(!paths.length)return;if(playerPath&&!paths.includes(playerPath))stopMusic();clearSelection();setPlayerQueue(paths);queueNotice('Queue replaced with current results.')};
   el('queueAppendResults').onclick=()=>appendQueueMembership(filtered.map(x=>x.path));
-  el('queueClear').onclick=()=>{stopMusic();clearSelection();queueSelectedPath=null;renderQueue();queueNotice('Queue cleared. Playback stopped and selection cleared.')};
+  el('queueClear').onclick=()=>{stopMusic();clearSelection();renderQueue();queueNotice('Queue cleared. Playback stopped and selection cleared.')};
   el('queueHistoryToggle').onclick=()=>{queuePanel=queuePanel==='history'?'queue':'history';renderQueue()};
   el('queuePagePrev').onclick=()=>{if(queuePanel==='history')historyPage--;else queuePage--;renderQueue()};
   el('queuePageNext').onclick=()=>{if(queuePanel==='history')historyPage++;else queuePage++;renderQueue()};
@@ -3044,7 +3103,7 @@ function initMusicCollections(){
     if(!await galleryCollectionDialog({title:'Clear listening history?',message:'Only the saved listening history will be removed.',action:'Clear',danger:true})||root!==r)return;
     const before=playerHistory;playerHistory=[];
     if(!await saveMusicCollections()){if(root===r)playerHistory=before;return}
-    if(root===r){historyPage=0;renderQueue();queueNotice('Listening history cleared.')}
+    if(root===r){historySelectedEntries=new Set();historySelectionAnchor=null;historyPage=0;renderQueue();queueNotice('Listening history cleared.')}
   };
   queueChanged();
 }
@@ -4855,6 +4914,7 @@ mediaDialog.addEventListener('pointercancel',()=>{dismissPointerStartedOnBackgro
 el('prev').onclick=()=>moveViewer(-1); el('next').onclick=()=>moveViewer(1);
 initMusicPlayer();initMusicCollections();initMusicFilters();
 document.addEventListener('keydown',e=>{
+  if(el('musicQueueDialog').open)return;
   const editing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||document.activeElement?.isContentEditable;
   if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='z'&&!editing){
     if(document.querySelector('dialog[open]:not(#viewer)'))return;
