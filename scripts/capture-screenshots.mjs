@@ -225,6 +225,10 @@ try {
   const queueListHeight=(await page.locator('#queueList').boundingBox()).height;
   await page.locator('#queueList .queue-row').first().locator('.queue-track-label').click();
   if(await page.locator('#queueList .queue-row.is-selected').count())throw Error('Queue row must not be selectable');
+  const useWidth=(await page.locator('#playlistLoad').boundingBox()).width,appendWidth=(await page.locator('#playlistAppend').boundingBox()).width;
+  await page.locator('#queueTags').click();
+  if((await page.locator('#playlistLoad').boundingBox()).width!==useWidth||(await page.locator('#playlistAppend').boundingBox()).width!==appendWidth)throw Error('Collection action widths changed in Tags');
+  await page.locator('#queueCollections').click();
   await page.locator('#queueHistoryToggle').click();
   await page.waitForFunction(()=>!document.getElementById('historyList').hidden&&document.getElementById('queueList').hidden&&!document.getElementById('historyClear').hidden);
   if(await page.locator('#queueHistoryToggle').textContent()!=='Queue')throw Error('Missing return to queue');
@@ -236,6 +240,15 @@ try {
   await page.locator('#historyList .queue-row').first().locator('.queue-track-label').click();
   if(!await page.locator('#historyList .queue-row').first().evaluate(row=>row.classList.contains('is-selected')))throw Error('History row not selected');
   if(await page.locator('#historyList .queue-row').count()<1)throw Error('Listening history not displayed');
+  const rows=page.locator('#historyList .queue-row');
+  if(await rows.count()>=2){
+    const first=await rows.nth(0).boundingBox(),second=await rows.nth(1).boundingBox();
+    await page.keyboard.down('Control');
+    await page.mouse.move(first.x+15,first.y+first.height/2);await page.mouse.down();
+    await page.mouse.move(second.x+15,second.y+second.height/2,{steps:5});await page.mouse.up();
+    await page.keyboard.up('Control');
+    await page.waitForFunction(()=>historySelectedEntries.size>=2);
+  }
   await page.keyboard.press('Control+a');
   await page.waitForFunction(()=>historySelectedEntries.size===playerHistory.length);
   if(await page.locator('#historyList .queue-row button').count())throw Error('Unexpected individual history play buttons');

@@ -2931,7 +2931,7 @@ function initHistorySelection(){
     historySelectedEntries=new Set([...drag.initial,...historyRange(playerHistory,drag.entry,row.historyEntry)]);historySelectionAnchor=drag.entry;updateHistorySelectionUI();
   });
   const finish=e=>{if(!drag||drag.id!==e.pointerId)return;suppressClick=drag.active;drag=null;if(host.hasPointerCapture(e.pointerId))host.releasePointerCapture(e.pointerId);if(suppressClick)setTimeout(()=>{suppressClick=false},0)};
-  host.addEventListener('pointerup',finish);host.addEventListener('pointercancel',finish);
+  host.addEventListener('pointerup',finish);host.addEventListener('pointercancel',finish);host.addEventListener('lostpointercapture',finish);
   host.addEventListener('click',e=>{if(suppressClick){e.preventDefault();e.stopImmediatePropagation();suppressClick=false}},true);
   dialog.addEventListener('keydown',e=>{
     if(queuePanel!=='history'||!(e.ctrlKey||e.metaKey)||e.key.toLowerCase()!=='a'||e.target.closest('input,textarea,select,[contenteditable=true]'))return;
@@ -3062,7 +3062,7 @@ function renderHistory(){
   }
 }
 function openMusicQueue(){
-  el('queueFeedback').textContent='';queuePanel='queue';historyPage=0;historySelectedEntries=new Set();historySelectionAnchor=null;historyPlaybackSelection=null;
+  el('queueFeedback').textContent='';queuePanel='queue';historyPage=0;
   const at=playerQueue.indexOf(playerPath);if(at>=0)queuePage=Math.floor(at/QUEUE_PAGE_SIZE);
   renderPlaylistOptions();renderQueue();el('musicQueueDialog').showModal();
 }
