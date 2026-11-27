@@ -1006,6 +1006,11 @@ body {padding-bottom:var(--music-player-height)}
 @media(max-width:680px){
   .top > .filters > #query{width:min(220px,100%);max-width:220px;min-width:0}
 }
+/* Three equal-width maintenance buttons fit the existing sidebar. */
+.shell > aside > .aside-bottom-toolbar .btn{
+  flex:1 1 0;min-width:0;max-width:none;white-space:normal;
+  overflow-wrap:normal;min-height:38px;height:auto;padding:5px 2px;
+}
 </style>
 </head>
 <body>
@@ -1061,6 +1066,7 @@ body {padding-bottom:var(--music-player-height)}
     <div class="aside-bottom-toolbar">
       <button class="btn" id="rescan" disabled title="Scan all subfolders again, reconcile recognized moves, and clean up missing references and previews after a successful scan.">↻ Rebuild index</button>
       <button class="btn" id="rebuildThumbs" disabled title="Delete generated previews and create new ones as you browse. Originals and metadata are unaffected.">↻ Remove thumbs</button>
+      <button class="btn" id="clearCache" type="button" title="Reset this music manager’s browser data, remembered libraries and preferences. Disk files are unchanged.">Clear cache</button>
     </div>
   </aside>
   <main>
@@ -1261,6 +1267,9 @@ function applyTheme(mode){
 try{applyTheme(localStorage.getItem(THEME_KEY)||'system')}catch(_){applyTheme('system')}
 systemThemeQuery.addEventListener?.('change',()=>{if(themePreference==='system')applyTheme('system')});
 const PREFS_DB = 'portable-media-gallery-prefs-v6.2:' + GALLERY_URL;
+// Discard any legacy name-only shortcut from older gallery-derived builds.
+const LEGACY_LIBRARY_NAME_KEY='gallery-last-library-name:'+GALLERY_URL;
+try{localStorage.removeItem(LEGACY_LIBRARY_NAME_KEY)}catch(_){}
 function pickerIdFor(url){
   // The File System Access picker ID must be short and ASCII-safe.
   let hash=2166136261;
@@ -1297,7 +1306,7 @@ let saveQueue=Promise.resolve(), pendingSaves=0, observer=null;
 const thumbs=new Map(), pendingThumbs=new Map(), thumbJobs=[];
 let thumbWorkers=0;
 let dirCache=new Map(),thumbIndex=new Map(),thumbDirty=false,thumbTimer=null;
-let recentLibraries=[],selectedLibraryId=null,prefsAvailable=true;
+let recentLibraries=[],selectedLibraryId=null,pendingLibraryId=null,prefsAvailable=true,libraryOpenToken=0,browserResetting=false;
 let fileInfo=new Map(), scanInProgress=false, fileInfoTimer=null, thumbResetting=false, deletingMedia=false;
 let configuredRootPath=''; // Human-readable user-entered location of the selected library, NOT exposed by the browser.
 // Selection is UI-only and never persisted; it is scoped to the visible Classic gallery.
@@ -2697,12 +2706,13 @@ function releaseViewerMedia(){
 // IndexedDB stores opaque folder handles, not a path string. The browser may still require new permission.
 function openPrefsDB(){
   return new Promise((resolve,reject)=>{
+    if(browserResetting)return reject(Error('Browser reset in progress'));
     if(!window.indexedDB)return reject(Error('IndexedDB is not available'));
     const req=indexedDB.open(PREFS_DB,2);
     req.onupgradeneeded=()=>{
       for(const name of [PREFS_STORE,UI_PREFS_STORE])if(!req.result.objectStoreNames.contains(name))req.result.createObjectStore(name,{keyPath:'id'});
     };
-    req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||Error('IndexedDB'));
+    req.onsuccess=()=>{const db=req.result;db.onversionchange=()=>db.close();if(browserResetting){db.close();reject(Error('Browser reset in progress'))}else resolve(db)};req.onerror=()=>reject(req.error||Error('IndexedDB'));
   });
 }
 async function prefsOp(mode,operation){
@@ -2712,7 +2722,17 @@ async function prefsOp(mode,operation){
     tx.oncomplete=()=>resolve(request?.result);tx.onerror=()=>reject(tx.error||Error('IndexedDB write failed'));
   })}finally{db.close()}
 }
-async function getRecentLibraries(){return (await prefsOp('readonly',s=>s.getAll())||[]).sort((a,b)=>b.lastUsed-a.lastUsed)}
+function validLibraryRecord(entry){
+  const h=entry?.handle;
+  return typeof entry?.id==='string'&&!!entry.id&&typeof entry.name==='string'&&!!entry.name
+    &&h?.kind==='directory'&&typeof h.queryPermission==='function'&&typeof h.requestPermission==='function'
+    &&typeof h.isSameEntry==='function';
+}
+function usableLibraryRecords(records){
+  return (Array.isArray(records)?records:[]).filter(validLibraryRecord)
+    .sort((a,b)=>(Number(b.lastUsed)||0)-(Number(a.lastUsed)||0));
+}
+async function getRecentLibraries(){return usableLibraryRecords(await prefsOp('readonly',s=>s.getAll()))}
 // Layout preference lives in its own store inside this HTML file's browser database.
 // It never mixes with library handles or on-disk photo metadata.
 async function uiPrefsOp(mode,operation){
@@ -2745,25 +2765,51 @@ function toggleLayout(){
   });
 }
 function renderRecents(){
-  const select=el('recentFolders');select.replaceChildren(new Option('Select library…',''));
+  const select=el('recentFolders');
+  select.replaceChildren(new Option('Select library…',''));
   for(const entry of recentLibraries)select.add(new Option(entry.name,entry.id));
-  select.hidden=!recentLibraries.length;
-  select.value=recentLibraries.some(entry=>entry.id===selectedLibraryId)?selectedLibraryId:'';
-  el('forget').hidden=!selectedLibraryId;
+  // Persisted library labels and live library handles represent distinct state.
+  // Always display the actual open folder, even if IndexedDB is unavailable.
+  const activeEntry=root&&recentLibraries.find(e=>e.id===selectedLibraryId);
+  if(root&&!activeEntry)select.add(new Option(root.name+' (current session)','__current__'));
+
+  // Match Music Manager: only an actually open library is selected.
+  // A pending library must be selectable again to trigger permission.
+  const selected=root?(activeEntry?activeEntry.id:'__current__'):'';
+  select.hidden=!(root||recentLibraries.length);
+  select.value=selected;
+  select.title=root?'Open library: '+root.name
+    :recentLibraries.length?'Choose a remembered library to open it.':'Select a library';
+  el('forget').hidden=!activeEntry;
 }
 async function rememberLibrary(handle){
-  if(!prefsAvailable)return;
+  if(!handle||browserResetting)return false;
   try{
     let found=null;
-    for(const entry of recentLibraries){try{if(await entry.handle.isSameEntry(handle)){found=entry;break}}catch(_){}}
+    for(const entry of recentLibraries){
+      try{if(entry.handle&&await entry.handle.isSameEntry(handle)){found=entry;break}}catch(_){}
+    }
     const id=found?.id||'lib-'+Date.now()+'-'+Math.random().toString(36).slice(2,9);
-    const item={id,name:handle.name,handle,lastUsed:Date.now()};
+    const lastUsed=Math.max(Date.now(),...recentLibraries.map(e=>(Number(e.lastUsed)||0)+1));
+    const item={id,name:handle.name,handle,lastUsed};
     await prefsOp('readwrite',store=>store.put(item));
     selectedLibraryId=id;
-    recentLibraries=await getRecentLibraries();
-    for(const entry of recentLibraries.slice(MAX_RECENTS))await prefsOp('readwrite',store=>store.delete(entry.id));
-    recentLibraries=recentLibraries.slice(0,MAX_RECENTS);renderRecents();
-  }catch(e){prefsAvailable=false;console.warn('Cannot remember libraries in browser:',e);toast('Browser could not save the recently used folder. Gallery still works.')}
+    recentLibraries=usableLibraryRecords(await getRecentLibraries());
+    if(!recentLibraries.some(entry=>entry.id===id&&validLibraryRecord(entry)))
+      throw Error('Browser did not retain the folder handle');
+    for(const entry of recentLibraries.slice(MAX_RECENTS))
+      await prefsOp('readwrite',store=>store.delete(entry.id));
+    recentLibraries=recentLibraries.slice(0,MAX_RECENTS);
+    pendingLibraryId=null;
+    renderRecents();
+    return true;
+  }catch(e){
+    console.warn('Could not remember the library handle:',e);
+    selectedLibraryId=null;
+    renderRecents();
+    toast('The folder is open, but the browser did not save it: '+e.message);
+    return false;
+  }
 }
 async function forgetLibraries(){
   if(!selectedLibraryId)return;
@@ -2771,9 +2817,46 @@ async function forgetLibraries(){
   if(!await galleryCollectionDialog({title:'Remove remembered library?',message:`Remove “${entry?.name||'this library'}” from this browser's remembered libraries?\n\nFiles on disk remain unchanged; the currently open library stays open.`,action:'Remove library',danger:true}))return;
   try{
     await prefsOp('readwrite',store=>store.delete(selectedLibraryId));
-    selectedLibraryId=null;recentLibraries=await getRecentLibraries();renderRecents();
+    selectedLibraryId=null;
+    recentLibraries=usableLibraryRecords(await getRecentLibraries());
+    // Keep the active folder visible as a session-only entry.
+    renderRecents();
     toast('Saved library shortcut removed; the currently open library is unchanged.');
   }catch(e){toast('Could not remove library shortcut: '+e.message)}
+}
+// Reset only the current app URL's own browser storage, never the media library.
+async function clearBrowserData(){
+  await new Promise((resolve,reject)=>{
+    const request=indexedDB.deleteDatabase(PREFS_DB);
+    request.onsuccess=()=>resolve();
+    request.onerror=()=>reject(request.error||Error('Could not delete Music Manager database'));
+    request.onblocked=()=>{setStatus('Close other Music Manager tabs');toast('Close other Freedom Music Manager tabs to finish clearing browser data.');};
+  });
+  // Include the retired fallback key so old app versions cannot leave ghost entries.
+  const keys=[THEME_KEY,LEGACY_LIBRARY_NAME_KEY,FOLDER_LOCK_KEY,COLLECTION_OPERATOR_KEY,MUSIC_SORT_KEY,playerVolumeKey];
+  for(const key of keys)localStorage.removeItem(key);
+  if(keys.some(key=>localStorage.getItem(key)!==null))throw Error('Some Music Manager preferences could not be removed');
+}
+async function clearBrowserCache(){
+  const busy=()=>browserResetting||librarySwitching||scanInProgress||thumbResetting||deletingMedia||pendingSaves;
+  if(busy()){toast('Wait for the current music library operation to finish.');return;}
+  if(!await galleryCollectionDialog({
+    title:'Clear browser cache?',
+    message:'Forget all saved libraries and browser preferences for this copy of Freedom Music Manager, then reload the application. Close other Music Manager tabs first.\n\nTracks, music collections, tags, favorites, Trash, listening history, index, covers and metadata cache on disk will not be deleted. Playback will stop when the application reloads. Browser-managed folder permissions may remain.',
+    action:'Clear cache',danger:true
+  }))return;
+  if(busy()){toast('Wait for the current music library operation to finish.');return;}
+  browserResetting=true;++libraryOpenToken;
+  el('clearCache').disabled=true;document.body.inert=true;
+  setStatus('Clearing browser data…');
+  try{
+    await flushMusicCache();await flushThumbManifest();await saveQueue;
+    await clearBrowserData();
+    location.reload();
+  }catch(e){
+    browserResetting=false;document.body.inert=false;el('clearCache').disabled=false;
+    setStatus('Cache reset failed');toast('Could not clear browser data: '+e.message);
+  }
 }
 async function activateLibrary(picked){
   if(thumbResetting||deletingMedia||scanInProgress||librarySwitching)throw Error('Wait for the current music library operation to finish.');
@@ -2783,7 +2866,7 @@ async function activateLibrary(picked){
   ++musicCacheSession;++musicIndexRun;await flushMusicCache();await flushThumbManifest();await saveQueue.catch(()=>{});
   scanNo++;clearTimeout(fileInfoTimer);if(el('viewer').open)closeViewer();stopMusic();playerRepeat='off';queueChanged();clearThumbs();
   resetViewHistory();
-  clearSelection();lastUndo=null;root=picked;configuredRootPath='';dirCache=new Map([['',picked]]);images=[];byPath.clear();
+  clearSelection();lastUndo=null;root=picked;selectedLibraryId=null;pendingLibraryId=null;renderRecents();configuredRootPath='';dirCache=new Map([['',picked]]);images=[];byPath.clear();
   el('libraryName').textContent=picked.name;el('libraryName').title=picked.name;activeView={type:'all'};visibleCount=80;
   el('folder').value='';el('kind').value='';el('query').value='';resetMusicFacets();
   ++musicIndexRun;clearTimeout(musicSearchTimer);musicSearchTimer=null;musicIndexCompleted=musicIndexTotal=0;musicIndexing=false;refreshMusicFacetOptions([],readMusicFacets());updateMusicFilterStatus();setStatus('Loading metadata…');
@@ -2794,36 +2877,93 @@ async function activateLibrary(picked){
   }finally{librarySwitching=false}
 }
 async function openRemembered(entry,allowPrompt=true){
-  if(!entry?.handle)return;
+  if(browserResetting||!entry?.handle)return false;
+  const token=++libraryOpenToken;
   try{
-    // Keep requestPermission directly in the click handler's activation chain.
-    const status=allowPrompt?await entry.handle.requestPermission({mode:'readwrite'}):await entry.handle.queryPermission({mode:'readwrite'});
+    // The request must be made directly in the user click/change handler.
+    // At page startup only queryPermission is permitted without a gesture.
+    const status=allowPrompt
+      ?await entry.handle.requestPermission({mode:'readwrite'})
+      :await entry.handle.queryPermission({mode:'readwrite'});
     if(status!=='granted'){
-      toast('This library needs permission. Select it in the Recent libraries dropdown to grant access.');return false;
+      if(allowPrompt)toast('Permission was not granted. Choose the library again or use Open library.');
+      return false;
     }
+    if(token!==libraryOpenToken||(!allowPrompt&&root))return false;
     if(!await confirmLibrarySelection(entry.handle))return false;
-    await activateLibrary(entry.handle);await rememberLibrary(entry.handle);return true;
-  }catch(e){toast('Could not restore library: '+e.message);return false}
+    if(token!==libraryOpenToken||(!allowPrompt&&root))return false;
+    await activateLibrary(entry.handle);
+    await rememberLibrary(entry.handle);
+    return true;
+  }catch(e){
+    console.warn('Could not reopen remembered library:',e);
+    if(allowPrompt)toast('Cannot reopen “'+entry.name+'”: '+e.message+'. Use Open library if needed.');
+    return false;
+  }
 }
 async function restoreRecents(){
-  if(!window.showDirectoryPicker)return;
+  if(browserResetting||!window.showDirectoryPicker)return;
   try{
-    recentLibraries=await getRecentLibraries();renderRecents();
+    const token=libraryOpenToken;
+    const found=await getRecentLibraries();
+    if(root||token!==libraryOpenToken)return; // Never replace a manual selection.
+    recentLibraries=usableLibraryRecords(found);
+    pendingLibraryId=recentLibraries[0]?.id||null;
+    renderRecents(); // The last library is visible even if permission has expired.
     if(recentLibraries.length){
-      const ok=await openRemembered(recentLibraries[0],false);
-      if(!ok)setStatus('Choose the previous library from the dropdown to grant access');
+      const last=recentLibraries[0],opening=openRemembered(last,false);
+      const restoreToken=libraryOpenToken,ok=await opening;
+      if(!ok&&!root&&restoreToken===libraryOpenToken){
+        pendingLibraryId=last.id;renderRecents();
+        setStatus('Permission needed');
+        el('status').title='Select “'+last.name+'” in the dropdown to request access. The browser may require renewed permission.'
+          ;
+      }
     }
-  }catch(e){prefsAvailable=false;console.warn('Library history unavailable:',e)}
+  }catch(e){
+    console.warn('Recent library history unavailable:',e);
+    if(!root){
+      renderRecents();
+      setStatus('Recent libraries unavailable');
+      el('status').title='Browser storage unavailable: '+e.message+'. Use Open library to reconnect.';
+    }
+  }
+}
+async function selectRememberedLibrary(id){
+  if(browserResetting)return false;
+  if(root&&id==='__current__'){renderRecents();return true}
+  if(!id){if(root)await chooseFolder();renderRecents();return !!root}
+  const entry=recentLibraries.find(item=>item.id===id);
+  if(!entry){renderRecents();return false}
+  if(!entry.handle||typeof entry.handle.requestPermission!=='function'){
+    toast('The saved folder handle is unavailable. Please select the library again.');
+    await chooseFolder();
+    renderRecents();
+    return !!root;
+  }
+  // A denied request returns the selector to its placeholder so it can be retried.
+  pendingLibraryId=id;
+  const ok=await openRemembered(entry,true);
+  if(!ok&&!root){
+    setStatus('Permission needed');
+    el('status').title='Choose “'+entry.name+'” again in the dropdown or use Open library.';
+  }
+  renderRecents();
+  return ok;
 }
 async function chooseFolder(){
+  if(browserResetting)return;
   if(!window.showDirectoryPicker){toast('Use Chrome or Edge with local folder access enabled.');return}
+  const token=++libraryOpenToken;
   try{
-    const last=recentLibraries[0]?.handle;
+    const last=recentLibraries.find(e=>e.id===(pendingLibraryId||selectedLibraryId))?.handle||recentLibraries[0]?.handle;
     const opts={mode:'readwrite',id:PICKER_ID};
-    if(last)opts.startIn=last;
+    if(last?.kind==='directory'&&typeof last.queryPermission==='function')opts.startIn=last;
     const picked=await window.showDirectoryPicker(opts);
-    if(!await confirmLibrarySelection(picked))return;
-    await activateLibrary(picked);await rememberLibrary(picked);
+    if(token!==libraryOpenToken)return;
+    if(!await confirmLibrarySelection(picked)||token!==libraryOpenToken)return;
+    await activateLibrary(picked);
+    await rememberLibrary(picked);
   }catch(e){if(e.name!=='AbortError'){toast('Could not open library: '+e.message);setStatus('Error');console.error(e)}}
 }
 function navButtonActive(){
@@ -4176,7 +4316,7 @@ el('gallery').closest('main').addEventListener('contextmenu',e=>{
   updateSelectionActionHints();
 });
 el('openFolder').onclick=chooseFolder;el('openFolder2').onclick=chooseFolder;
-el('recentFolders').onchange=async e=>{ const entry=recentLibraries.find(x=>x.id===e.target.value); if(entry)await openRemembered(entry); else { await chooseFolder(); renderRecents(); } };
+el('recentFolders').onchange=e=>{void selectRememberedLibrary(e.target.value)};
 el('forget').onclick=forgetLibraries;
 el('rescan').onclick=()=>void scan(true);
 el('navAll').onclick=()=>changeView('all'); el('navFav').onclick=e=>{ if(e.target.closest('.row-plus')) return; chooseSpecialView('favorites'); }; el('navTrash').onclick=e=>{ if(e.target.closest('.row-plus')) return; chooseSpecialView('trash'); };
@@ -4217,6 +4357,7 @@ el('loadMore').onclick=()=>{visibleCount+=80; renderCards()};
 el('layoutToggle').onclick=toggleLayout;
 el('themeSelect').onchange=e=>{applyTheme(e.target.value); try{localStorage.setItem(THEME_KEY,themePreference)}catch(_){toast('Theme changed but could not be saved in this browser.')}};
 el('rebuildThumbs').onclick=()=>void rebuildThumbnailCache();
+el('clearCache').onclick=()=>void clearBrowserCache();
 el('favViewer').onclick=()=>{if(currentPath){toggleFavorite(currentPath); if(activeView.type==='favorites')filterAndRender(); else renderCards(); updateViewerFavorite();}};
 el('viewerShowAlbums').onclick=()=>switchViewerCollections('albums'); el('viewerShowTags').onclick=()=>switchViewerCollections('tags');
 el('viewerCollectionQuery').addEventListener('input',debounce(renderViewerCollections,90));

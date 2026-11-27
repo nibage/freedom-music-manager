@@ -34,6 +34,8 @@ The demo ZIP contains nine synthetic tracks in WAV, MP3, FLAC, Ogg Vorbis, M4A a
 
 **← Back** restores the previous search results, including folder, audio format, music collections, tags, favorites, Trash, OFF/OR/AND, folder lock, metadata filters and sort order. It retains up to 50 navigation steps in the current library session; opening a library resets the history. It does not undo metadata edits or affect playback.
 
+**Clear cache** (bottom sidebar, alongside Rebuild index and Remove thumbs) resets only this copy's browser storage: saved directory handles, view preferences, theme, folder lock, collection operator, sorting and player volume. It discards obsolete name-only shortcuts and ignores invalid handles. After confirmation the app reloads; playback stops, but tracks, music collections, tags, favorites, listening history and derived disk caches remain intact. Browser-managed permissions may remain. Close other Music Manager tabs before resetting.
+
 ## How filters combine
 
 The sidebar OFF / OR / AND button affects only selected Music Collections, custom tags, Favorites and Trash. OFF selects one criterion; OR matches any selected criterion; AND matches every selected criterion. Artist, actual Album, Genre, Year, Duration, search and Format always narrow the resulting tracks using AND. A locked folder always narrows results; an unlocked folder is ignored while any sidebar criterion is selected. Reset filters clears metadata, search, format and folder, not the sidebar selection or sort order. Metadata options include counts within the current scope.
