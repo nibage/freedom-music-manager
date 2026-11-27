@@ -76,9 +76,9 @@ test('search coalesces, history is bounded and resets per library',()=>{
   for(let i=0;i<60;i++){nodes.folder.value=i%2?'A':'B';api.filterAndRender(false,'filter')}
   assert.equal(api.state().history,50);api.resetViewHistory();assert.equal(api.state().history,0);assert.equal(api.state().backDisabled,true);
 });
-test('header places Back between format and view, with search on the right',()=>{
+test('header places Back between format and view, with compact search immediately before format',()=>{
   const header=html.slice(html.indexOf('<header class="top">'),html.indexOf('</header>'));
-  assert.match(header,/id="kind"[\s\S]*?id="viewBack"[\s\S]*?id="layoutToggle"[\s\S]*?id="query"/);
+  assert.match(header,/id="query"[^>]*>\s*<select id="kind"[\s\S]*?id="viewBack"[\s\S]*?id="layoutToggle"/);
   assert.match(html,/\.top > \.filters > #query\{[\s\S]*?max-width:220px;[\s\S]*?margin-left:auto;/);
   assert.match(js,/el\('viewBack'\)\.onclick=goBackView/);
   assert.match(js,/async function activateLibrary\(picked\)[\s\S]*?resetViewHistory\(\)/);
