@@ -9,13 +9,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ALLOWED_FORMATS = {'wav', 'mp3', 'flac', 'ogg', 'm4a', 'opus'}
-SCREENSHOTS = ['classic-dark.png', 'detailed-dark.png', 'classic-light.png', 'mobile-light.png']
+SCREENSHOTS = ['classic-dark.png', 'detailed-dark.png', 'classic-light.png', 'mobile-light.png', 'preview-dark.png', 'queue-dark.png']
 
 
 def build(version, demo):
     if not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+(?:[-.][a-zA-Z0-9.-]+)?', version):
         raise ValueError('Expected a version such as v1.0.0-rc.1')
-    app = {name: ROOT/name for name in ['__music/index.html', 'README.md', 'LICENSE', 'docs/REFERENCE.md']}
+    app = {name: ROOT/name for name in ['__music/index.html', 'README.md', 'LICENSE', 'docs/REFERENCE.md', 'docs/media/storage.svg']}
     # Only the current screenshot script's exact filenames are eligible.
     for name in SCREENSHOTS:
         path = ROOT/'docs'/'screenshots'/name

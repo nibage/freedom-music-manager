@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="270" viewBox="0 0 1000 270" role="img" aria-labelledby="title desc">
+<title id="title">Your music stays in place</title><desc id="desc">The local HTML app reads music folders and writes portable metadata beside them, without cloud upload.</desc>
+<rect width="1000" height="270" rx="18" fill="#171c24"/>
+<g font-family="system-ui,sans-serif"><text x="35" y="40" font-size="24" font-weight="700" fill="#f3f5f8">Your music stays in place.</text>
+<g fill="#242c38" stroke="#455264"><rect x="35" y="66" width="275" height="166" rx="12"/><rect x="363" y="66" width="274" height="166" rx="12"/><rect x="690" y="66" width="275" height="166" rx="12"/></g>
+<g fill="#f2a82f" font-size="17" font-weight="700"><text x="55" y="100">Your music folders</text><text x="383" y="100">Local HTML player</text><text x="710" y="100">Portable metadata</text></g>
+<g fill="#d9e0e9" font-size="15"><text x="55" y="135">Artist / Album / Track.flac</text><text x="55" y="161">Original audio and covers</text><text x="55" y="187">No copying for collections</text><text x="383" y="135">__music/index.html</text><text x="383" y="161">Browse · filter · play</text><text x="383" y="187">No account or cloud upload</text><text x="710" y="135">__music/data/</text><text x="710" y="161">Collections · tags · history</text><text x="710" y="187">Relative paths and caches</text></g>
+<g stroke="#f2a82f" stroke-width="2.5" fill="none"><path d="M321 150h31m-8-7 8 7-8 7"/><path d="M648 150h31m-8-7 8 7-8 7"/></g>
+<text x="500" y="255" text-anchor="middle" fill="#aebbc9" font-size="13">One local library · readable metadata · your original files</text></g></svg>

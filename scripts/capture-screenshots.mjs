@@ -101,6 +101,41 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('#gallery .photo').length === 9);
   await page.waitForFunction(()=>!musicIndexing);
   await page.waitForFunction(()=>[...document.querySelectorAll('#gallery .thumb')].some(x=>x.complete&&x.naturalWidth>0));
+  if(process.argv.includes('--readme-only')){
+    // Capture the current real UI independently of the longer behavioral regression.
+    const dest=join(rootPath,'docs','screenshots');
+    await mkdir(dest,{recursive:true});
+    const snap=async name=>{
+      await page.mouse.move(0,0);
+      await page.waitForTimeout(300);
+      await page.screenshot({path:join(dest,name+'.png'),animations:'disabled',fullPage:false});
+      console.log('Captured',name+'.png');
+    };
+    await page.evaluate(()=>window.scrollTo(0,0));
+    await snap('classic-dark');
+    await page.locator('#layoutToggle').click();
+    await page.waitForFunction(()=>document.getElementById('layoutToggle').getAttribute('aria-pressed')==='true');
+    await snap('detailed-dark');
+    await page.locator('#layoutToggle').click();
+    await page.waitForFunction(()=>document.getElementById('layoutToggle').getAttribute('aria-pressed')==='false');
+    await page.locator('#themeSelect').selectOption('light');
+    await snap('classic-light');
+    await page.setViewportSize({width:390,height:844});
+    await snap('mobile-light');
+    await page.setViewportSize({width:2048,height:1080});
+    await page.locator('#themeSelect').selectOption('dark');
+    await page.evaluate(()=>window.scrollTo(0,0));
+    await page.locator('#gallery .photo').filter({hasText:'First Light'}).locator('.video-tile').click();
+    await page.waitForFunction(()=>document.getElementById('viewer').open&&currentPath?.includes('First Light'));
+    await page.locator('#viewerPlayer').waitFor({state:'visible'});
+    await snap('preview-dark');
+    await page.locator('#closeViewer').click();
+    await page.locator('#playerQueueButton').click();
+    await page.locator('#queueAddResults').click();
+    await page.waitForFunction(()=>playerQueue.length===9);
+    await snap('queue-dark');
+    await page.locator('#queueClose').click();
+  } else {
   const baseline=await page.evaluate(()=>{
     const cards=[...document.querySelectorAll('#gallery .photo')];
     window.__retainedFilterCards=cards.map(card=>({card,thumb:card.querySelector('.thumb'),src:card.querySelector('.thumb').getAttribute('src')}));
@@ -366,9 +401,9 @@ try {
     await page.screenshot({ path: join(dest, name + '.png'), animations: 'disabled', fullPage: false });
     console.log('Captured', name + '.png');
   }
-  // Keep exactly three screenshots in README and distribution ZIPs.
+  // Keep the documented screenshot filenames in README and distribution ZIPs.
   // Remove obsolete captures from previous gallery versions.
-  const desired = new Set(['classic-dark.png', 'classic-light.png', 'detailed-dark.png', 'mobile-light.png']);
+  const desired = new Set(['classic-dark.png', 'classic-light.png', 'detailed-dark.png', 'mobile-light.png', 'preview-dark.png', 'queue-dark.png']);
   for (const filename of await readdir(dest)) {
     if (filename.toLowerCase().endsWith('.png') && !desired.has(filename))
       await unlink(join(dest, filename));
@@ -440,6 +475,7 @@ try {
     throw Error('Browser reset did not clear the application storage correctly');
   if(!await page.locator('#recentFolders').isHidden())throw Error('Forgotten library selector is still visible');
   console.log('PASS: clear cache resets actual browser storage including sorting and volume, without touching unrelated data');
+  }
   if (errors.length) throw new Error('Browser JavaScript errors: '+errors.join('; '));
   await context.close();
 } finally {

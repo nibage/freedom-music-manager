@@ -33,6 +33,7 @@ jobs:
       - name: Test audio playback, metadata, collection persistence and layout
         run: |
           node scripts/capture-screenshots.mjs
+          node scripts/capture-screenshots.mjs --readme-only
           touch docs/screenshots/music-capture.ok
       - name: Build and verify application and demo ZIPs
         shell: bash
