@@ -85,3 +85,18 @@ test('header places Back between format and view, with compact search before fol
   assert.match(js,/const changed=\(\)=>\{clearSelection\(\);visibleCount=80;filterAndRender\(false,'filter'\)\}/);
   assert.doesNotThrow(()=>new Function(js));
 });
+
+test('header status reserves a fixed width and preserves full text on hover',()=>{
+  const rules=[...html.matchAll(/\.top-right #status\{([^}]+)\}/g)];
+  assert.equal(rules.length,1);
+  assert.match(rules[0][1],/flex:0 0 160px;width:160px;min-width:160px;max-width:160px;/);
+  assert.match(rules[0][1],/text-overflow:ellipsis;white-space:nowrap;text-align:right;/);
+  const source=html.match(/function setStatus\(s\)\{[^}]+\}/)[0];
+  const status={};
+  const setStatus=new Function('el',source+';return setStatus')(id=>status);
+  for(const message of ['loaded from index','Loading metadata…','Scanning all subfolders…']){
+    setStatus(message);
+    assert.equal(status.textContent,message);
+    assert.equal(status.title,message);
+  }
+});

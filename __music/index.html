@@ -813,12 +813,6 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
     flex-wrap:nowrap;
     white-space:nowrap;
   }
-  .top-right #status{
-    flex:0 0 auto;
-    min-width:0;
-    max-width:none;
-    white-space:nowrap;
-  }
   .top-right .recent-chooser{
     flex:0 0 136px;
     width:136px;
@@ -871,7 +865,6 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
     min-width:max-content;
     max-width:none;
   }
-  .top-right #status{min-width:0;flex:0 0 auto;}
 }
 
 
@@ -994,6 +987,11 @@ body {padding-bottom:var(--music-player-height)}
  .shell > aside > .aside-content{max-height:260px}
 }
 
+/* Reserve a stable header status slot so transient messages cannot shift filters. */
+.top-right #status{
+  flex:0 0 160px;width:160px;min-width:160px;max-width:160px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;
+}
 /* Compact right-aligned search and navigation history. */
 .top > .filters > #viewBack{
   flex:0 0 auto;white-space:nowrap;padding-inline:9px!important;
@@ -1433,7 +1431,7 @@ function goBackView(){
 }
 
 function typeOf(path){return AUDIO_EXT.test(path)?'audio':null}
-function setStatus(s){el('status').textContent=s}
+function setStatus(s){const status=el('status');status.textContent=s;status.title=s}
 function toast(s){const n=el('toast');n.textContent=s;n.style.display='block';clearTimeout(toast.timer);toast.timer=setTimeout(()=>n.style.display='none',5500)}
 function lines(s){return s.split(/\r?\n/).map(x=>x.trim()).filter(x=>x&&!x.startsWith('#'))}
 function serializePaths(xs){return [...xs].sort((a,b)=>a.localeCompare(b,'cs')).join('\n')+(xs.size?'\n':'')}
