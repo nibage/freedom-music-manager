@@ -108,7 +108,18 @@ try {
   await page.waitForFunction(() => filtered.length === 3);
   // WAV is broadly supported in Chromium. Start playback and change filters.
   const card = page.locator('#gallery .photo').filter({hasText:'First Light'});
+  const initialTop=await page.locator('#gallery').evaluate(e=>e.getBoundingClientRect().top);
   await card.locator('.video-tile').click();
+  await page.waitForFunction(()=>playerPath?.includes('First Light')&&playerPrepared&&playerAudio.paused&&selectedPaths.size===1);
+  if(await page.locator('#gallery').evaluate(e=>e.getBoundingClientRect().top)!==initialTop)throw Error('Selecting a track moved the results grid');
+  const other=page.locator('#gallery .photo').filter({hasNotText:'First Light'}).first();
+  await other.locator('.meta').click({modifiers:['Control']});
+  await page.waitForFunction(()=>selectedPaths.size===2&&playerPath?.includes('First Light'));
+  await other.locator('.meta').click();
+  await page.waitForFunction(()=>selectedPaths.size===1&&playerPrepared&&playerAudio.paused&&!playerPath.includes('First Light'));
+  await card.locator('.meta').click();
+  await page.waitForFunction(()=>selectedPaths.size===1&&playerPath?.includes('First Light')&&playerAudio.paused);
+  await page.locator('#playerPlay').click();
   await page.waitForFunction(() => playerPath?.includes('First Light') && !playerAudio.paused && playerAudio.currentTime > 0, null,{timeout:15000});
   await page.locator('#musicFilterReset').click();
   await page.locator('#musicGenre').selectOption('v:electronic');

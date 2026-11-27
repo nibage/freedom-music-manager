@@ -1011,6 +1011,34 @@ body {padding-bottom:var(--music-player-height)}
   flex:1 1 0;min-width:0;max-width:none;white-space:normal;
   overflow-wrap:normal;min-height:38px;height:auto;padding:5px 2px;
 }
+/* Selection actions are permanently positioned in the player, never above results. */
+#musicPlayer{
+  grid-template-columns:minmax(120px,1fr) max-content minmax(270px,1.3fr) minmax(105px,.55fr);
+  column-gap:12px;
+}
+#musicPlayer .player-selection-actions{
+  display:flex;flex-direction:column;gap:5px;align-items:stretch;min-width:0;
+}
+#musicPlayer .player-selection-actions .btn{
+  font-size:12px;white-space:nowrap;min-height:30px;padding:4px 10px;
+}
+#musicPlayer .player-selection-actions .btn:disabled{opacity:.45}
+#musicPlayer .player-description{min-width:0}
+@media(min-width:761px) and (max-width:1100px){
+  #musicPlayer{grid-template-columns:minmax(0,1fr) max-content minmax(105px,.5fr);gap:8px}
+  .player-track{grid-column:1;grid-row:1}
+  #musicPlayer .player-selection-actions{grid-column:2;grid-row:1;flex-direction:row}
+  .player-volume{grid-column:3;grid-row:1}
+  .player-center{grid-column:1/-1;grid-row:2}
+}
+@media(max-width:760px){
+  #musicPlayer{grid-template-columns:minmax(0,1fr) minmax(105px,.5fr);gap:6px;padding:8px 10px}
+  #musicPlayer .player-selection-actions{grid-column:1/-1;grid-row:2;flex-direction:row;justify-content:center}
+  .player-center{grid-row:3}
+}
+/* Cover clicks select a track; a playback glyph appears only for active playback. */
+#gallery .video-tile .play{visibility:hidden}
+#gallery .photo.is-playing .video-tile .play{visibility:visible}
 </style>
 </head>
 <body>
@@ -1100,7 +1128,6 @@ body {padding-bottom:var(--music-player-height)}
       <button class="btn" id="bulkTrash" type="button" title="Move selected files to the in-gallery Trash without deleting original files from disk.">Move to Trash</button>
       <button class="btn" id="clearSelection" type="button" title="Clear the selection and return to normal single-track opening.">✕ Clear selection</button>
     </div>
-    <div id="musicSelectionActions" class="selection-toolbar" hidden><span id="musicSelectedCount" class="selection-count"></span><button class="btn" id="bulkQueue" type="button">＋ Queue</button><button class="btn" id="bulkPlayNext" type="button">Play next</button></div>
     <div id="gallery" class="grid"></div>
     <button class="btn" id="loadMore" hidden>Load more</button>
     <div id="welcome" class="empty">
@@ -1120,6 +1147,10 @@ body {padding-bottom:var(--music-player-height)}
       <div id="playerArtist">Choose a track to play</div>
     </div>
     <button id="playerDetails" class="btn player-icon" title="Track details and collections" aria-label="Track details" disabled>ⓘ</button>
+  </div>
+  <div class="player-selection-actions" aria-label="Actions for selected tracks">
+    <button class="btn" id="bulkQueue" type="button" disabled title="Add selected tracks to the playback queue">＋ Queue</button>
+    <button class="btn" id="bulkPlayNext" type="button" disabled title="Move selected tracks after the current track">Play next</button>
   </div>
   <div class="player-center">
     <div class="player-transport">
@@ -2283,7 +2314,7 @@ function remapMusicPaths(paths,moves){return [...new Set(paths.map(p=>moves.get(
 
 /* END MUSIC PLAYER LOGIC */
 let playerPath=null,playerQueue=[],playerURL=null,playerRequest=0,playerLoading=false,playerWantsPlay=false,playerSeekActive=false;
-let lastPlayerVolume=.75;
+let lastPlayerVolume=.75,playerPrepared=false;
 let playerRepeat='off',playerShuffle=false,playerOriginalOrder=[],playerHistory=[],musicCollectionsWritable=false,musicHistoryRequest=-1,queuePage=0;
 const playerAudio=el('bigVideo');
 const playerVolumeKey='freedom-music-volume:'+GALLERY_URL;
@@ -2308,7 +2339,7 @@ function updatePlayerControls(){
   el('playerPrev').disabled=!active||(!nextPlayerPath(-1)&&playerAudio.currentTime<3);
   el('playerNext').disabled=!active||!nextPlayerPath(1);
   if(el('viewer').open){const same=active&&currentPath===playerPath;el('viewerPlayTrack').textContent=same&&playing?'Ⅱ Pause track':'▶ Play track';el('viewerPlayTrack').disabled=!currentPath||!playerEligible(currentPath);el('viewerQueueTrack').disabled=el('viewerPlayNext').disabled=el('viewerPlayTrack').disabled}
-  for(const [path,card] of musicCardsByPath){card.classList.toggle('is-playing',path===playerPath);const play=card.querySelector('.play');if(play)play.textContent=path===playerPath&&playing?'Ⅱ':'▶'}
+  for(const [path,card] of musicCardsByPath){card.classList.toggle('is-playing',path===playerPath&&!playerPrepared);const play=card.querySelector('.play');if(play)play.textContent=path===playerPath&&playing?'Ⅱ':'▶'}
 }
 function updatePlayerTime(){
   const d=playerAudio.duration,t=playerAudio.currentTime||0,seek=el('playerSeek');
@@ -2321,7 +2352,7 @@ function releasePlayerSource(){
   if(playerURL)URL.revokeObjectURL(playerURL);playerURL=null;
 }
 function stopMusic(clear=true){
-  ++playerRequest;playerLoading=false;playerWantsPlay=false;playerSeekActive=false;releasePlayerSource();
+  playerPrepared=false;++playerRequest;playerLoading=false;playerWantsPlay=false;playerSeekActive=false;releasePlayerSource();
   if(clear){playerPath=null;playerQueue=[];resetQueueOrder()}
   queueChanged();
   updatePlayerTrack();updatePlayerTime();
@@ -2332,8 +2363,18 @@ async function resumePlayer(){
     if(request===playerRequest&&e.name!=='AbortError')toast('Playback could not start. Press Play again or try another format.');
   }if(request===playerRequest)updatePlayerControls();
 }
+// Stage a track in the transport without automatically playing it or replacing the queue.
+function prepareTrack(path){
+  if(!playerEligible(path)||deletingMedia||librarySwitching||path===playerPath)return;
+  ++playerRequest;playerLoading=false;playerWantsPlay=false;playerSeekActive=false;
+  releasePlayerSource();
+  playerPath=path;playerPrepared=true;
+  updatePlayerTrack();updatePlayerTime();queueChanged();
+}
 async function startTrack(path,newQueue=true){
   if(!playerEligible(path)||deletingMedia)return;
+  const wasPrepared=playerPrepared;
+  playerPrepared=false;
   if(path===playerPath&&(playerURL||playerLoading)){
     if(newQueue)currentQueueSnapshot(path);
     if(playerLoading){playerWantsPlay=true;updatePlayerControls();return}
@@ -2344,7 +2385,12 @@ async function startTrack(path,newQueue=true){
   playerLoading=true;playerWantsPlay=true;playerSeekActive=false;
   releasePlayerSource();
   playerPath=path;
-  if(newQueue)currentQueueSnapshot(path);else queueChanged();
+  if(newQueue)currentQueueSnapshot(path);
+  else{
+    // An explicitly queued list survives staging another track.
+    if(wasPrepared&&!playerQueue.includes(path)){playerQueue.unshift(path);resetQueueOrder()}
+    queueChanged();
+  }
   updatePlayerTrack();updatePlayerTime();
   try{
     const file=await itemFile(item);
@@ -2360,7 +2406,7 @@ async function startTrack(path,newQueue=true){
 function toggleMusic(){
   if(playerLoading){playerWantsPlay=!playerWantsPlay;updatePlayerControls();return}
   if(!playerPath){const queued=playerQueue.find(playerEligible);if(queued)void startTrack(queued,false);else{const first=filtered.find(x=>playerEligible(x.path));if(first)void startTrack(first.path)}return}
-  if(!playerURL){void startTrack(playerPath,false);return}
+  if(!playerURL){void startTrack(playerPath,playerPrepared&&!playerQueue.some(playerEligible));return}
   if(playerAudio.paused||playerAudio.ended){if(playerAudio.ended)playerAudio.currentTime=0;void resumePlayer()}
   else {playerAudio.pause();playerWantsPlay=false;updatePlayerControls()}
 }
@@ -2379,8 +2425,8 @@ function applyPlayerVolume(){
   const v=playerAudio.volume,muted=playerAudio.muted;
   el('playerVolume').value=v;el('playerVolumeValue').textContent=Math.round(v*100)+'%';
   el('playerMute').textContent=muted||v===0?'🔇':'🔊';el('playerMute').setAttribute('aria-pressed',String(muted));el('playerMute').setAttribute('aria-label',muted?'Unmute':'Mute');
-  try{localStorage.setItem(playerVolumeKey,String(v))}catch(_){}
 }
+function persistPlayerVolume(){try{localStorage.setItem(playerVolumeKey,String(playerAudio.volume))}catch(_){}}
 function initMusicPlayer(){
   try{const v=localStorage.getItem(playerVolumeKey);if(v!==null&&Number.isFinite(+v))lastPlayerVolume=Math.max(0,Math.min(1,+v))}catch(_){}
   playerAudio.volume=lastPlayerVolume;applyPlayerVolume();
@@ -2391,8 +2437,8 @@ function initMusicPlayer(){
   el('viewerPlayTrack').onclick=()=>{if(currentPath===playerPath)toggleMusic();else if(currentPath)void startTrack(currentPath)};
   const seek=el('playerSeek');
   seek.addEventListener('input',()=>{const d=playerAudio.duration;if(Number.isFinite(d)&&d>0){playerAudio.currentTime=Math.min(d,Math.max(0,+seek.value));updatePlayerTime()}});
-  el('playerVolume').oninput=e=>{playerAudio.volume=+e.target.value;playerAudio.muted=false;if(playerAudio.volume>0)lastPlayerVolume=playerAudio.volume;applyPlayerVolume()};
-  el('playerMute').onclick=()=>{if(playerAudio.volume===0){playerAudio.volume=lastPlayerVolume||.75;playerAudio.muted=false}else playerAudio.muted=!playerAudio.muted;applyPlayerVolume()};
+  el('playerVolume').oninput=e=>{playerAudio.volume=+e.target.value;playerAudio.muted=false;if(playerAudio.volume>0)lastPlayerVolume=playerAudio.volume;applyPlayerVolume();persistPlayerVolume()};
+  el('playerMute').onclick=()=>{if(playerAudio.volume===0){playerAudio.volume=lastPlayerVolume||.75;playerAudio.muted=false}else playerAudio.muted=!playerAudio.muted;applyPlayerVolume();persistPlayerVolume()};
   playerAudio.addEventListener('volumechange',applyPlayerVolume);
   for(const event of ['play','pause','ended','loadedmetadata','durationchange','emptied','error'])playerAudio.addEventListener(event,()=>{updatePlayerControls();updatePlayerTime()});
   playerAudio.addEventListener('timeupdate',()=>{updatePlayerTime();el('playerPrev').disabled=!playerPath||(!nextPlayerPath(-1)&&playerAudio.currentTime<3)});
@@ -2490,7 +2536,7 @@ function queueChanged(){
   if(el('musicQueueDialog').open)renderQueue();
 }
 function addMusicQueue(paths,next=false){
-  if(!root)return;const before=playerQueue.slice(),out=queueInsert(before,paths,playerPath,next,playerEligible);
+  if(!root)return;const before=playerQueue.slice(),out=queueInsert(before,paths,playerPrepared?null:playerPath,next,playerEligible);
   // Explicit manual ordering takes precedence over shuffle.
   resetQueueOrder();playerQueue=out;queueChanged();
   const count=out.filter(p=>!before.includes(p)).length;
@@ -3112,7 +3158,7 @@ function renderCards(){
     const card=document.createElement('article');card.className='photo'+(trash.has(item.path)?' in-trash':'')+(selectedPaths.has(item.path)?' is-selected':'');card.dataset.path=item.path;
     let media,thumbnail;
     if(item.kind==='audio'){
-      media=document.createElement('button');media.className='video-tile';media.title=item.name;media.setAttribute('aria-label','Play track: '+item.name);
+      media=document.createElement('button');media.className='video-tile';media.title=item.name;media.setAttribute('aria-label','Select track: '+item.name);media.setAttribute('aria-pressed',String(selectedPaths.has(item.path)));
       thumbnail=document.createElement('img');thumbnail.className='thumb';thumbnail.alt='Album cover';thumbnail.src=DEFAULT_COVER;thumbnail.dataset.path=item.path;
       const play=document.createElement('span');play.className='play';play.textContent='▶';
       const tag=document.createElement('span');tag.className='kind-tag';tag.textContent=audioFormat(item.path).toUpperCase();
@@ -3124,11 +3170,10 @@ function renderCards(){
     const heart=document.createElement('button');heart.className='heart'+(favorites.has(item.path)?' on':'');heart.textContent=favorites.has(item.path)?'♥':'♡';heart.title='Toggle favorite';heart.setAttribute('aria-label',heart.title);
     heart.onclick=()=>{toggleFavorite(item.path);if(activeView.type==='favorites')filterAndRender();else{heart.className='heart'+(favorites.has(item.path)?' on':'');heart.textContent=favorites.has(item.path)?'♥':'♡'}};
     const meta=document.createElement('div');meta.className='meta';const name=document.createElement('span');name.className='filename';name.title=item.path;meta.append(name);for(let i=0;i<3;i++){const line=document.createElement('span');line.className='track-details music-line-'+i;meta.append(line)}
-    meta.setAttribute('role','button');meta.setAttribute('tabindex','0');meta.setAttribute('aria-label','Select '+item.name);meta.title='Select this track (Shift-click for range)';
+    meta.setAttribute('role','button');meta.setAttribute('tabindex','0');meta.setAttribute('aria-label','Select '+item.name);meta.title='Select this track (Ctrl-click to toggle, Shift-click for range)';meta.setAttribute('aria-pressed',String(selectedPaths.has(item.path)));
     const selectFromCaption=e=>{
       e.preventDefault();e.stopPropagation();
-      // The caption always selects; the picture itself still opens the viewer.
-      activateCard(item.path,{preventDefault:()=>{},stopPropagation:()=>{},ctrlKey:!e.shiftKey,metaKey:!!e.metaKey,shiftKey:!!e.shiftKey});
+      activateCard(item.path,e);
     };
     meta.onclick=selectFromCaption;
     meta.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){selectFromCaption(e)}};
@@ -3176,19 +3221,18 @@ function syncBulkAlbums(){
 }
 function activateCard(path,event){
   if(suppressCardClick){event.preventDefault();event.stopPropagation();return}
-  // Classic mode: clicking the picture always opens it; only its caption or
-  // modifier-click selects. Instagram has no caption, so selecting mode stays available.
-  const selectOnPlainClick=selectingMode&&document.body.classList.contains('detailed-mode');
-  if(!(selectOnPlainClick||event.ctrlKey||event.metaKey||event.shiftKey)){
-    if(trash.has(path))void openViewer(path);else if(path===playerPath)toggleMusic();else void startTrack(path);return;
-  }
-  event.preventDefault();selectingMode=true;
-  if(event.shiftKey&&selectionAnchor){
-    const shown=filtered.slice(0,visibleCount).map(i=>i.path),a=shown.indexOf(selectionAnchor),b=shown.indexOf(path);
+  event.preventDefault();
+  const additive=event.ctrlKey||event.metaKey;
+  if(!additive&&!event.shiftKey){
+    selectedPaths.clear();selectedPaths.add(path);selectionAnchor=path;
+    if(playerEligible(path))prepareTrack(path);
+  }else if(event.shiftKey){
+    const shown=filtered.slice(0,visibleCount).map(i=>i.path);
+    const a=shown.indexOf(selectionAnchor),b=shown.indexOf(path);
+    if(!additive)selectedPaths.clear();
     if(a>=0&&b>=0){
-      if(!event.ctrlKey&&!event.metaKey)selectedPaths.clear();
       for(const target of shown.slice(Math.min(a,b),Math.max(a,b)+1))selectedPaths.add(target);
-    }else selectedPaths.add(path);
+    }else{selectedPaths.add(path);selectionAnchor=path}
   }else{
     if(selectedPaths.has(path))selectedPaths.delete(path);else selectedPaths.add(path);
     selectionAnchor=path;
@@ -3884,12 +3928,15 @@ function updateSelectionUI(){
   if(!selectingMode)document.body.classList.remove('show-selection-actions');
   document.body.classList.toggle('has-selection',selectingMode);
   if(!selectingMode) selectionAnchor=null;
-  document.querySelectorAll('#gallery .photo').forEach(card=>card.classList.toggle('is-selected',selectedPaths.has(card.dataset.path)));
+  document.querySelectorAll('#gallery .photo').forEach(card=>{
+    const selected=selectedPaths.has(card.dataset.path);
+    card.classList.toggle('is-selected',selected);
+    for(const node of card.querySelectorAll('.video-tile,.meta'))node.setAttribute('aria-pressed',String(selected));
+  });
   updateResultsLine();
   updateSelectionActionHints();
   updateSelectedDeleteButton();
   const playableSelected=[...selectedPaths].filter(playerEligible).length;
-  el('musicSelectionActions').hidden=!playableSelected;el('musicSelectedCount').textContent=playableSelected+' selected';
   el('bulkQueue').disabled=el('bulkPlayNext').disabled=!root||!playableSelected||deletingMedia||scanInProgress||thumbResetting;
 }
 function clearSelection(){selectedPaths.clear();selectingMode=false;selectionAnchor=null;updateSelectionUI();}
