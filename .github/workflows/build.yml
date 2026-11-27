@@ -1,108 +1,78 @@
-name: Build downloadable Freedom Gallery ZIPs
+name: Test and build Freedom Music Manager
 
 on:
   push:
-    branches: [main]
+    branches: [main, music-migration]
     tags: ['v*']
-    paths-ignore:
-      - 'docs/screenshots/**'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  distribute:
+  verify-and-package:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js for real demo screenshots
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-
-      - name: Run app and packaging regression checks
-        run: node --test tests/*.test.mjs
-
-      - name: Install screenshot tooling (CI only)
-        id: install_screenshots
-        continue-on-error: true
-        timeout-minutes: 2
+          node-version: '22'
+      - name: Generate synthetic music demo
+        run: |
+          command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+          python3 scripts/generate_music_demo.py demo-music
+      - name: Run music-specific regression and metadata tests
+        run: node --test tests/music-*.test.mjs tests/unified-music-collections.test.mjs
+      - name: Install Chromium integration tooling
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1
-          # The ubuntu-24.04 runner already provides Chromium OS libraries.
-          # Skip apt install --with-deps to avoid a long dependency update.
-          npx playwright install chromium
-
-      - name: Capture actual application screenshots using the included demo
-        id: screenshots
-        if: steps.install_screenshots.outcome == 'success'
-        continue-on-error: true
-        run: node scripts/capture-screenshots.mjs
-
-      - name: Describe screenshot status
-        if: steps.screenshots.outcome != 'success'
-        run: echo 'Demo screenshot setup/capture failed or was skipped. See the job log; the clean ZIP packaging still runs independently.' >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Build clean application and demo ZIPs
+          npx playwright install --with-deps chromium
+      - name: Test audio playback, metadata, collection persistence and layout
+        run: |
+          node scripts/capture-screenshots.mjs
+          node scripts/capture-screenshots.mjs --readme-only
+          touch docs/screenshots/music-capture.ok
+      - name: Build and verify application and demo ZIPs
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_REF_NAME}" == v* ]]; then
-            VERSION="${GITHUB_REF_NAME}"
-          else
-            VERSION="main-${GITHUB_SHA:0:7}"
-          fi
-          mkdir -p dist .release-stage/__gallery .release-stage/docs
-          cp __gallery/index.html .release-stage/__gallery/index.html
-          cp README.md LICENSE .release-stage/
-          cp -R docs/media .release-stage/docs/
-          cp docs/REFERENCE.md .release-stage/docs/REFERENCE.md
-          if [[ -d docs/screenshots ]]; then
-            cp -R docs/screenshots .release-stage/docs/
-          fi
-
-          # Explicit allowlist: tests, scripts, .github, node_modules, caches,
-          # and other development helpers are never copied into this directory.
-          (cd .release-stage && zip -q -r "../dist/freedom-gallery-${VERSION}.zip" .)
-          cp -R demo-gallery .release-stage/demo-gallery
-          (cd .release-stage && zip -q -r "../dist/freedom-gallery-demo-${VERSION}.zip" .)
-
-          echo "### Distributable ZIPs" >> "$GITHUB_STEP_SUMMARY"
-          echo "- freedom-gallery-${VERSION}.zip — application only" >> "$GITHUB_STEP_SUMMARY"
-          echo "- freedom-gallery-demo-${VERSION}.zip — application and bundled demo" >> "$GITHUB_STEP_SUMMARY"
-          unzip -Z1 "dist/freedom-gallery-${VERSION}.zip" | grep -E '(^|/)(\.github|tests|scripts|node_modules|\.gitignore)(/|$)' && {
-            echo 'Development files leaked into release ZIP' >&2
-            exit 1
-          } || test "$?" -eq 1
-
-      - name: Upload downloadable ZIP artifacts
-        uses: actions/upload-artifact@v4
+          VERSION=v1.0.0-rc.3
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then VERSION="$GITHUB_REF_NAME"; fi
+          # Preserve the small deterministic integration fixture, then extend the packaged demo.
+          python3 scripts/generate_music_demo.py demo-music --extend --count 2009
+          python3 scripts/build_music_release.py "$VERSION"
+          cd dist
+          sha256sum -c SHA256SUMS.txt
+          printf '### Verified packages\n\n' >> "$GITHUB_STEP_SUMMARY"
+          ls -lh *.zip >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
         with:
-          name: freedom-gallery-zips
-          path: dist/*.zip
+          name: freedom-music-manager-zips
+          path: dist/
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish direct ZIP assets on version tags
-        if: startsWith(github.ref, 'refs/tags/v')
+  publish-tagged-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: verify-and-package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: freedom-music-manager-zips
+          path: dist
+      - name: Publish tested ZIP assets
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/*.zip --title "Freedom Gallery $GITHUB_REF_NAME" --generate-notes
-
-      - name: Refresh README screenshots in the repository
-        if: github.ref == 'refs/heads/main' && steps.screenshots.outcome == 'success'
-        continue-on-error: true
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A docs/screenshots
-          if ! git diff --cached --quiet; then
-            git commit -m "docs: refresh demo screenshots [skip ci]"
-            git push origin HEAD:main
-          fi
+          cd dist
+          sha256sum -c SHA256SUMS.txt
+          args=()
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then args+=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" *.zip SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --verify-tag --title "Freedom Music Manager $GITHUB_REF_NAME" --generate-notes "${args[@]}"

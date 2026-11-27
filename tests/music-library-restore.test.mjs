@@ -1,0 +1,214 @@
+import { readFileSync } from 'node:fs';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+const html=readFileSync(new URL('../__music/index.html',import.meta.url),'utf8');
+const js=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+assert.ok(js,'The gallery inline JavaScript is required');
+const slice=(start,end)=>{
+  const from=js.indexOf(start),to=js.indexOf(end,from);
+  assert.ok(from>=0&&to>from,'Expected original gallery functions: '+start);
+  return js.slice(from,to);
+};
+// Run the real production handlers, with only storage and actual disk I/O faked.
+const handlers=slice('function validLibraryRecord(entry){','async function getRecentLibraries(){')
+  +slice('function renderRecents(){','async function forgetLibraries(){')
+  +slice('async function openRemembered(entry,allowPrompt=true){','function navButtonActive(){');
+
+class Select {
+  constructor(){this.value='';this.options=[];this.hidden=true;this.title='';}
+  replaceChildren(...args){this.options=[...args];this.value=args[0]?.value??'';}
+  add(option){this.options.push(option);}
+}
+
+function harness({records=[],prompt='granted',permission='granted',error=null,failSave=false,lastRoot=null}={}){
+  const status={title:''},forget={hidden:true},dropdown=new Select();
+  const nodes={recentFolders:dropdown,forget,status};
+  const events=[],notices=[],saved=new Map(records.map(x=>[x.id,x]));
+  let permissionResult=permission;
+  let permissionError=error;
+  function makeHandle(name='Pictures-special'){
+    const h={kind:'directory',name,isSameEntry:async other=>h===other,
+      queryPermission:()=>{events.push('query');return Promise.resolve(prompt);},
+      requestPermission:()=>{events.push('request');if(permissionError)return Promise.reject(permissionError);return Promise.resolve(permissionResult);}
+    };
+    return h;
+  }
+  const picked=makeHandle();
+  const env={
+    el:id=>nodes[id],
+    Option:class {constructor(text,value){this.text=text;this.value=value;}},
+    window:{showDirectoryPicker:async()=>{events.push('picker');return picked;}},
+    prefsOp:async(mode,fn)=>{
+      if(mode==='readwrite'&&failSave)throw Error('IndexedDB write blocked');
+      const store={
+        put(item){saved.set(item.id,item);return {result:item};},
+        delete(id){saved.delete(id);return {result:undefined};}
+      };
+      return fn(store)?.result;
+    },
+    getRecentLibraries:async()=>[...saved.values()].sort((a,b)=>b.lastUsed-a.lastUsed),
+    toast:message=>notices.push(message),
+    setStatus:value=>{events.push('status:'+value);status.title=value;},
+    confirmLibrarySelection:async()=>true,
+    console:{warn:()=>{}},
+    makeHandle,
+    picked,
+    initialRecords:[...saved.values()],
+    initialRoot:lastRoot,
+    events,
+    notices
+  };
+  const factory=new Function('env',
+    'const {el,Option,window,prefsOp,getRecentLibraries,toast,setStatus,confirmLibrarySelection,console}=env;'+
+    "const MAX_RECENTS=5,PICKER_ID='test-picker';"+
+    'let root=env.initialRoot,recentLibraries=env.initialRecords,selectedLibraryId=null,pendingLibraryId=null,libraryOpenToken=0;'+
+    'let prefsAvailable=true,browserResetting=false;function persistLibraryView(){}function forgetLibraryView(){}'+
+    'let thumbResetting=false,deletingMedia=false;'+
+    'async function activateLibrary(handle){env.events.push("activate:"+handle.name);root=handle;selectedLibraryId=null;pendingLibraryId=null;renderRecents();env.events.push("loaded:16 files");}'+
+    handlers+
+    ';return {renderRecents,rememberLibrary,openRemembered,restoreRecents,selectRememberedLibrary,chooseFolder,'+
+    'getState:()=>({root,selectedLibraryId,pendingLibraryId,recentLibraries,libraryOpenToken}),'+
+    'setPermission:v=>env.setPermission(v),setHandleRoot:v=>{root=v}}'
+  );
+  env.setPermission=value=>{permissionResult=value;permissionError=null;};
+  const app=factory(env);
+  return {app,env,picked,dropdown,status,forget,events,notices,saved};
+}
+
+test('automatic startup actually activates most recent granted folder and selects its name',async()=>{
+  const x=harness();
+  const recent={id:'last',name:x.picked.name,handle:x.picked,lastUsed:123};
+  x.saved.set(recent.id,recent);
+  await x.app.restoreRecents();
+  assert.ok(x.events.includes('query'),'startup must query browser permission');
+  assert.ok(x.events.some(x=>x==='activate:Pictures-special'),'the real load path was invoked');
+  assert.ok(x.events.includes('loaded:16 files'));
+  assert.equal(x.dropdown.value,'last');
+  assert.equal(x.dropdown.options.find(v=>v.value==='last')?.text,'Pictures-special');
+  assert.equal(x.app.getState().root,x.picked);
+});
+
+test('startup with prompt leaves the placeholder selected for dropdown retry',async()=>{
+  const x=harness({prompt:'prompt'});
+  x.saved.set('last',{id:'last',name:x.picked.name,handle:x.picked,lastUsed:123});
+  await x.app.restoreRecents();
+  assert.ok(!x.events.some(v=>v.startsWith('activate:')));
+  assert.equal(x.dropdown.value,'');
+  assert.ok(x.dropdown.options.some(o=>o.value==='last'));
+  assert.ok(x.events.includes('status:Permission needed'));
+  assert.ok(!x.events.includes('request'));
+});
+
+test('choosing library invokes requestPermission synchronously and actually activates media',async()=>{
+  const x=harness({prompt:'prompt'});
+  x.saved.set('last',{id:'last',name:x.picked.name,handle:x.picked,lastUsed:123});
+  await x.app.restoreRecents();
+  const opening=x.app.selectRememberedLibrary('last');
+  assert.equal(x.events.at(-1),'request','prompt must be within real click handler activation');
+  assert.equal(await opening,true);
+  assert.ok(x.events.includes('activate:Pictures-special'));
+  assert.ok(x.events.includes('loaded:16 files'));
+  assert.equal(x.dropdown.value,'last');
+});
+
+test('denied permission can be retried from the same dropdown option',async()=>{
+  const x=harness({prompt:'prompt',permission:'denied'});
+  x.saved.set('last',{id:'last',name:x.picked.name,handle:x.picked,lastUsed:123});
+  await x.app.restoreRecents();
+  assert.equal(await x.app.selectRememberedLibrary('last'),false);
+  assert.equal(x.dropdown.value,'');
+  x.app.setPermission('granted');
+  assert.equal(await x.app.selectRememberedLibrary('last'),true);
+  assert.deepEqual(x.events.filter(z=>z==='request'),['request','request']);
+  assert.ok(x.events.includes('loaded:16 files'));
+});
+
+test('switching between remembered folders selects and persists only the opened folder',async()=>{
+  const x=harness();
+  const other=x.env.makeHandle('Other library');
+  x.saved.set('last',{id:'last',name:x.picked.name,handle:x.picked,lastUsed:123});
+  x.saved.set('other',{id:'other',name:other.name,handle:other,lastUsed:50});
+  await x.app.restoreRecents();
+  assert.equal(x.dropdown.value,'last');
+  assert.equal(await x.app.selectRememberedLibrary('other'),true);
+  assert.equal(x.app.getState().root,other);
+  assert.equal(x.dropdown.value,'other');
+  assert.equal(x.app.getState().recentLibraries[0].id,'other');
+});
+
+test('manual picker selection always shows the active library, even if browser storage fails',async()=>{
+  const x=harness({failSave:true});
+  await x.app.chooseFolder();
+  assert.ok(x.events.includes('picker'));
+  assert.ok(x.events.includes('activate:Pictures-special'));
+  assert.equal(x.dropdown.value,'__current__');
+  assert.ok(x.dropdown.options.some(o=>o.text.includes('Pictures-special (current session)')));
+  assert.ok(x.notices.some(v=>v.includes('IndexedDB write blocked')));
+});
+
+test('remembering a manual library persists the actual native handle when storage works',async()=>{
+  const x=harness();
+  await x.app.chooseFolder();
+  const state=x.app.getState(),saved=[...x.saved.values()][0];
+  assert.equal(state.selectedLibraryId,saved.id);
+  assert.equal(saved.handle,x.picked);
+  assert.equal(x.dropdown.value,saved.id);
+  assert.equal(x.dropdown.options.find(o=>o.value===saved.id)?.text,'Pictures-special');
+});
+
+test('empty startup never reconstructs a name-only library',async()=>{
+  const x=harness();
+  await x.app.restoreRecents();
+  assert.equal(x.dropdown.value,'');
+  assert.equal(x.dropdown.hidden,true);
+  assert.deepEqual(x.dropdown.options.map(o=>o.value),['']);
+  assert.ok(!x.events.some(v=>v.startsWith('activate:')));
+  assert.doesNotMatch(js,/lastLibraryHint|rememberLibraryName|__reselect__/);
+  assert.match(js,/localStorage\.removeItem\(LEGACY_LIBRARY_NAME_KEY\)/);
+});
+test('malformed stored handles are ignored and manual picker remains available',async()=>{
+  const x=harness();
+  x.saved.set('bad',{id:'bad',name:'Pictures-special',handle:{name:'Pictures-special'},lastUsed:2});
+  await x.app.restoreRecents();
+  assert.equal(x.dropdown.hidden,true);
+  assert.ok(!x.dropdown.options.some(o=>o.value==='bad'));
+  assert.ok(!x.events.includes('query'));
+  await x.app.chooseFolder();
+  assert.ok(x.events.includes('picker'));
+  assert.ok(x.events.includes('loaded:16 files'));
+});
+test('invalid recent record does not hide an older valid library',async()=>{
+  const x=harness();
+  x.saved.set('bad',{id:'bad',name:'Ghost',lastUsed:200});
+  x.saved.set('last',{id:'last',name:x.picked.name,handle:x.picked,lastUsed:100});
+  await x.app.restoreRecents();
+  assert.equal(x.dropdown.value,'last');
+  assert.ok(!x.dropdown.options.some(o=>o.value==='bad'));
+});
+test('manual choice is never overwritten by a delayed automatic restore',async()=>{
+  const x=harness();
+  let unblock;
+  const slowHandle={kind:'directory',name:'Old library',
+    queryPermission:()=>new Promise(resolve=>{unblock=resolve}),
+    requestPermission:()=>Promise.resolve('granted'),
+    isSameEntry:async()=>false};
+  x.saved.set('old',{id:'old',name:'Old library',handle:slowHandle,lastUsed:100});
+  const restoring=x.app.restoreRecents();
+  await Promise.resolve();await Promise.resolve();
+  const manual=x.app.chooseFolder();
+  await manual;
+  if(unblock)unblock('granted');
+  await restoring;
+  assert.equal(x.app.getState().root,x.picked);
+  assert.ok(!x.events.includes('activate:Old library'));
+});
+
+test('header handlers remain connected directly to dropdown and remove library',()=>{
+  assert.doesNotMatch(html,/id="reconnectLibrary"/);
+  assert.match(html,/id="forget"/);
+  assert.match(js,/el\('recentFolders'\)\.onchange=e=>\{void selectRememberedLibrary\(e\.target\.value\)\}/);
+  assert.match(js,/el\('forget'\)\.onclick=forgetLibraries/);
+  assert.match(js,/if\(!await loadIndex\(\)\)await scan\(\)/);
+  assert.doesNotThrow(()=>new Function(js));
+});

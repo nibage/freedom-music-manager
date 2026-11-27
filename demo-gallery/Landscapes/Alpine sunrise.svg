@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="Demo landscape: Alpine sunrise">
-  <defs><linearGradient id="sky943663" x2="0" y2="1"><stop offset="0" stop-color="#ffa87a"/><stop offset="1" stop-color="#fdde9a"/></linearGradient>
-  <linearGradient id="ground943663" x2="0" y2="1"><stop stop-color="#5b6d92"/><stop offset="1" stop-color="#263d63"/></linearGradient></defs>
-  <rect width="1200" height="800" fill="url(#sky943663)"/>
-  <circle cx="336" cy="218" r="83" fill="#ffefd2" opacity=".74"/>
-  <path d="M0 595 L160 390 L335 577 L480 295 L670 557 L800 330 L1015 550 L1130 410 L1200 510 V800 H0Z" fill="#5b6d92" opacity=".77"/>
-  <path d="M0 640 Q155 540 290 630 Q480 490 640 615 Q780 540 925 635 Q1090 550 1200 630 V800 H0 Z" fill="url(#ground943663)"/>
-  <path d="M0 770 Q340 741 570 770 T1200 756 V800 H0Z" fill="#263d63" opacity=".56"/>
-  </svg>

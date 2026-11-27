@@ -1,0 +1,63 @@
+name: Refresh README screenshots
+
+on:
+  push:
+    branches: [main, music-migration]
+    paths:
+      - '__music/index.html'
+      - 'README.md'
+      - 'scripts/capture-screenshots.mjs'
+      - 'scripts/generate_music_demo.py'
+      - '.github/workflows/readme-screenshots.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: readme-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate the small synthetic demo
+        run: |
+          command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+          python3 scripts/generate_music_demo.py demo-music
+      - name: Install Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install chromium
+      - name: Capture actual application screenshots
+        run: node scripts/capture-screenshots.mjs --readme-only
+      - uses: actions/upload-artifact@v4
+        with:
+          name: music-manager-readme-screenshots
+          path: docs/screenshots/*.png
+          if-no-files-found: error
+      - name: Publish screenshots on the originating branch
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/music-migration'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$GITHUB_REF_NAME"
+          if [[ "$(git rev-parse FETCH_HEAD)" != "$GITHUB_SHA" ]]; then
+            echo "Branch moved during capture; not publishing stale screenshots."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f docs/screenshots/{classic-dark,classic-light,detailed-dark,mobile-light,preview-dark,queue-dark}.png
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: refresh Music Manager demo screenshots [skip ci]"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi

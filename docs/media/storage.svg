@@ -1,20 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="230" viewBox="0 0 1100 230" role="img" aria-label="Your folders and media stay in place. Gallery data is saved as text next to the HTML file.">
-<style>text{font-family:Segoe UI,Arial,sans-serif}</style>
-<rect width="1100" height="230" rx="18" fill="#1b1e24"/>
-<g stroke="#464b54" stroke-width="2" fill="#24272f">
-<rect x="40" y="34" width="275" height="162" rx="12"/>
-<rect x="412" y="34" width="274" height="162" rx="12"/>
-<rect x="783" y="34" width="275" height="162" rx="12"/>
-</g>
-<g font-size="23" font-weight="700" fill="#f6a622">
-<text x="65" y="77">📁 Your media</text>
-<text x="438" y="77">▦ index.html</text>
-<text x="811" y="77">📝 Plain text</text>
-</g>
-<g font-size="17" fill="#e4e6e9">
-<text x="65" y="109">Photos / 2026 / …</text><text x="65" y="137">Originals never moved</text><text x="65" y="165">Organize on your disk</text>
-<text x="438" y="109">Works offline</text><text x="438" y="137">Classic + Instagram</text><text x="438" y="165">Search, filter, select</text>
-<text x="811" y="109">favorites.txt</text><text x="811" y="137">tags.tsv</text><text x="811" y="165">albums/*.txt</text>
-</g>
-<g stroke="#67b879" stroke-width="4" fill="none" stroke-linecap="round"><path d="M327 112H390m-14-10 14 10-14 10"/><path d="M698 112h64m-14-10 14 10-14 10"/></g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="270" viewBox="0 0 1000 270" role="img" aria-labelledby="title desc">
+<title id="title">Your music stays in place</title><desc id="desc">The local HTML app reads music folders and writes portable metadata beside them, without cloud upload.</desc>
+<rect width="1000" height="270" rx="18" fill="#171c24"/>
+<g font-family="system-ui,sans-serif"><text x="35" y="40" font-size="24" font-weight="700" fill="#f3f5f8">Your music stays in place.</text>
+<g fill="#242c38" stroke="#455264"><rect x="35" y="66" width="275" height="166" rx="12"/><rect x="363" y="66" width="274" height="166" rx="12"/><rect x="690" y="66" width="275" height="166" rx="12"/></g>
+<g fill="#f2a82f" font-size="17" font-weight="700"><text x="55" y="100">Your music folders</text><text x="383" y="100">Local HTML player</text><text x="710" y="100">Portable metadata</text></g>
+<g fill="#d9e0e9" font-size="15"><text x="55" y="135">Artist / Album / Track.flac</text><text x="55" y="161">Original audio and covers</text><text x="55" y="187">No copying for collections</text><text x="383" y="135">__music/index.html</text><text x="383" y="161">Browse · filter · play</text><text x="383" y="187">No account or cloud upload</text><text x="710" y="135">__music/data/</text><text x="710" y="161">Collections · tags · history</text><text x="710" y="187">Relative paths and caches</text></g>
+<g stroke="#f2a82f" stroke-width="2.5" fill="none"><path d="M321 150h31m-8-7 8 7-8 7"/><path d="M648 150h31m-8-7 8 7-8 7"/></g>
+<text x="500" y="255" text-anchor="middle" fill="#aebbc9" font-size="13">One local library · readable metadata · your original files</text></g></svg>
