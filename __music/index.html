@@ -1086,6 +1086,7 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
 #playerCoverButton:focus-visible{outline:2px solid var(--ok);outline-offset:3px}
 /* Queue and Play next stay visible in their own left-hand action column. */
 #musicPlayer .player-selection-actions .player-queue-control{width:100%}
+@media(max-width:1100px){#musicPlayer .player-selection-actions .player-queue-control{width:auto}}
 #musicPlayer #playerQueueButton{width:100%;padding-right:35px}
 #musicPlayer .player-selection-actions #bulkQueue{padding:1px 5px;min-height:23px}
 #musicPlayer .player-transport{flex-wrap:wrap}
@@ -1196,7 +1197,7 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
         <select id="musicSort" aria-label="Sort tracks"><option value="auto">Sort: default order</option><option value="title">Sort: title</option><option value="artist">Sort: artist</option><option value="album">Sort: album / track</option><option value="genre">Sort: genre</option><option value="year">Sort: year</option><option value="duration">Sort: duration</option><option value="format">Sort: format</option><option value="name">Sort: filename</option><option value="path">Sort: file path</option></select>
         <button id="musicSortDirection" class="btn" type="button" aria-label="Sort ascending" title="Change sort direction" disabled>↑ Asc</button>
         <button id="musicFilterReset" type="button" class="btn" title="Clear metadata filters, search, format and folder; keep selected collections and tags" disabled>Reset filters</button>
-        <button id="musicSelectAll" type="button" class="btn" title="Select all playable tracks in the filtered results, including those not yet shown" disabled>Select all</button>
+        <button id="musicSelectAll" type="button" class="btn" title="Select all tracks in the filtered results, including those not yet shown" disabled>Select all</button>
       </div>
       <div id="musicFilterSummary" hidden></div>
     </section>
@@ -4236,14 +4237,14 @@ function updateSelectionUI(){
   const playableSelected=[...selectedPaths].filter(playerEligible).length;
   el('bulkPlayNext').disabled=!root||!playableSelected||deletingMedia||scanInProgress||thumbResetting;
   updateQueueMembershipAction();
-  el('musicSelectAll').disabled=!root||librarySwitching||deletingMedia||!filtered.some(x=>playerEligible(x.path));
+  el('musicSelectAll').disabled=!root||librarySwitching||deletingMedia||!filtered.length;
   if(playerSelectionKey!==selectionPlaybackKey(selectedPlaybackPaths()))playerSelectionKey=null;
   if(playerPreviewPath&&(!selectedPaths.has(playerPreviewPath)||!playerEligible(playerPreviewPath)))dismissTrackPreview();
   updatePlayerControls();syncViewBack();
 }
 function selectAllMusicResults(){
   if(!root||librarySwitching||deletingMedia)return;
-  selectedPaths=new Set(filtered.filter(item=>playerEligible(item.path)).map(item=>item.path));
+  selectedPaths=new Set(filtered.map(item=>item.path));
   selectionAnchor=selectedPaths.values().next().value||null;
   if(selectionAnchor)prepareTrack(selectionAnchor);else dismissTrackPreview();
   updateSelectionUI();

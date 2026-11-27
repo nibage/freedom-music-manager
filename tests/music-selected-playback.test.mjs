@@ -11,10 +11,10 @@ test('main and preview share one audio element and mirrored transport controls',
   assert.match(js,/el\('viewerQueueButton'\)\.onclick=openMusicQueue/);
   assert.match(js,/el\('viewerPlayerShuffle'\)\.onclick=toggleShuffle/);
 });
-test('select all selects filtered playable tracks beyond the rendered page',()=>{
+test('select all selects every filtered track beyond the rendered page, even in Trash',()=>{
   const source=js.slice(js.indexOf('function selectAllMusicResults(){'),js.indexOf('function clearSelection(){playerSelectionKey='));
   const api=new Function("let root={},librarySwitching=false,deletingMedia=false,selectedPaths=new Set(),selectionAnchor=null,filtered=Array.from({length:200},(_,i)=>({path:String(i)}));const playerEligible=p=>p!=='199';function prepareTrack(){}function dismissTrackPreview(){}function updateSelectionUI(){}"+source+";return ()=>{selectAllMusicResults();return [...selectedPaths]}")();
-  assert.equal(api().length,199);
+  assert.equal(api().length,200);
   assert.match(html,/id="musicFilterReset"[^>]*>Reset filters<\/button>\s*<button id="musicSelectAll"/);
 });
 test('selected playback uses finite queue and disables repeat on new selection',()=>{

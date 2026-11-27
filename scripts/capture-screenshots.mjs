@@ -154,6 +154,23 @@ try {
   await page.locator('#playerPlay').click();
   await page.waitForFunction(() => playerAudio.paused);
   await page.locator('#musicFilterReset').click();
+  // Preview Play must replace a populated queue, play only selected WAVs, and stop at its end.
+  const selectedWavs=await page.evaluate(()=>{
+    const wavs=filtered.filter(x=>x.path.toLowerCase().endsWith('.wav')&&playerEligible(x.path)).slice(0,2).map(x=>x.path);
+    if(wavs.length!==2)throw Error('Missing demo WAVs');
+    setPlayerQueue(filtered.map(x=>x.path));
+    selectedPaths=new Set(wavs);selectionAnchor=wavs[0];prepareTrack(wavs[0]);updateSelectionUI();return wavs;
+  });
+  await page.locator('#playerCoverButton').click();
+  await page.locator('#viewerPlayTrack').click();
+  await page.waitForFunction(paths=>JSON.stringify(playerQueue)===JSON.stringify(paths)&&playerPath===paths[0]&&!playerAudio.paused&&Number.isFinite(playerAudio.duration),selectedWavs);
+  await page.evaluate(()=>{playerAudio.currentTime=Math.max(0,playerAudio.duration-.15)});
+  await page.waitForFunction(paths=>playerPath===paths[1]&&!playerAudio.paused&&Number.isFinite(playerAudio.duration),selectedWavs);
+  await page.evaluate(()=>{playerAudio.currentTime=Math.max(0,playerAudio.duration-.15)});
+  await page.waitForFunction(paths=>playerPath===paths[1]&&playerAudio.ended&&playerAudio.paused&&JSON.stringify(playerQueue)===JSON.stringify(paths),selectedWavs);
+  await page.locator('#closeViewer').click();
+  await page.evaluate(()=>clearSelection());
+  console.log('PASS: selected-only preview playback ends after exactly two tracks');
   await page.locator('#playerQueueButton').click();
   // The hover membership badge must fit inside the Queue button, not shift the transport.
   await page.locator('#queueClose').click();
