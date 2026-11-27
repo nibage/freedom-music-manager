@@ -3,10 +3,10 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 const html=readFileSync(new URL('../__music/index.html',import.meta.url),'utf8');
 const js=html.match(/<script>([\s\S]*?)<\/script>/)[1];
-test('queue membership action precedes queue and has a reserved left slot',()=>{
-  assert.match(html,/<div class="player-queue-control"><button[^>]*id="bulkQueue"[\s\S]*?<\/button><button[^>]*id="playerQueueButton"/);
-  assert.match(html,/\.player-queue-control\{[^}]*padding-left:28px/);
-  assert.match(html,/#musicPlayer #bulkQueue\{[^}]*left:0;top:50%/);
+test('queue membership action follows the queue label inside its reserved right slot',()=>{
+  assert.match(html,/<div class="player-queue-control"><button[^>]*id="playerQueueButton"[\s\S]*?<\/button><button[^>]*id="bulkQueue"/);
+  assert.match(html,/#musicPlayer #playerQueueButton \{[^}]*padding-right:35px/);
+  assert.match(html,/#musicPlayer #bulkQueue\{[^}]*right:5px;top:50%/);
 });
 test('metadata filters stick directly below the measured header',()=>{
   assert.match(html,/#musicFilters\{position:sticky;top:var\(--gallery-header-height,68px\);z-index:8/);

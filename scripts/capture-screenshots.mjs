@@ -152,6 +152,22 @@ try {
   await page.waitForFunction(() => playerAudio.paused);
   await page.locator('#musicFilterReset').click();
   await page.locator('#playerQueueButton').click();
+  // The hover membership badge must fit inside the Queue button, not shift the transport.
+  await page.locator('#queueClose').click();
+  await page.evaluate(()=>{
+    const item=filtered.find(x=>playerEligible(x.path)&&x.path!==playerPath);
+    if(!item)throw Error('Missing demo track for queue badge');
+    selectedPaths.clear();selectedPaths.add(item.path);updateSelectionUI();
+  });
+  const queueBeforeHover=await page.locator('#playerQueueButton').boundingBox();
+  await page.locator('#playerQueueButton').hover();
+  await page.locator('#bulkQueue').waitFor({state:'visible'});
+  const badge=await page.locator('#bulkQueue').boundingBox(),queueAfterHover=await page.locator('#playerQueueButton').boundingBox();
+  if(!badge||!queueBeforeHover||!queueAfterHover||badge.x<queueAfterHover.x+queueAfterHover.width/2||badge.x+badge.width>queueAfterHover.x+queueAfterHover.width||badge.y<queueAfterHover.y||badge.y+badge.height>queueAfterHover.y+queueAfterHover.height)throw Error('Queue membership badge is not inside the right edge');
+  if(JSON.stringify(queueBeforeHover)!==JSON.stringify(queueAfterHover))throw Error('Queue button moved on hover');
+  await page.locator('#bulkQueue').click();
+  if(await page.locator('#musicQueueDialog').isVisible())throw Error('Membership action opened queue dialog');
+  await page.locator('#playerQueueButton').click();
   await page.locator('#queueAddResults').click();
   await page.locator('#playlistName').fill('CI demo collection');
   await page.locator('#playlistSave').click();

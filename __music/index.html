@@ -932,9 +932,9 @@ body {padding-bottom:var(--music-player-height)}
 
 
 /* Ordered music collections and playback queue. */
-#musicPlayer #playerQueueButton {font-size:12px;white-space:nowrap}
-.player-queue-control{position:relative;display:inline-flex;flex:0 0 auto;padding-left:28px}
-#musicPlayer #bulkQueue{display:none;position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:5;min-width:25px;min-height:23px;padding:1px 5px;border:1px solid var(--ok);border-radius:999px;background:var(--panel);color:var(--ok);font-size:14px;font-weight:700;line-height:18px}
+#musicPlayer #playerQueueButton {font-size:12px;white-space:nowrap;padding-right:35px}
+.player-queue-control{position:relative;display:inline-flex;flex:0 0 auto}
+#musicPlayer #bulkQueue{display:none;position:absolute;right:5px;top:50%;transform:translateY(-50%);z-index:5;min-width:25px;min-height:23px;padding:1px 5px;border:1px solid var(--ok);border-radius:999px;background:var(--panel);color:var(--ok);font-size:14px;font-weight:700;line-height:18px}
 .player-queue-control:hover #bulkQueue:not([disabled]),.player-queue-control:focus-within #bulkQueue:not([disabled]),#bulkQueue:focus-visible{display:inline-flex;align-items:center;justify-content:center}
 @media (hover:none){.player-queue-control #bulkQueue:not([disabled]){display:inline-flex;align-items:center;justify-content:center}}
 #musicPlayer .player-toggle[aria-pressed=true] {border-color:var(--accent);color:var(--accent);font-weight:700}
@@ -1204,7 +1204,7 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
       <button id="playerStop" class="btn player-icon" title="Stop playback" aria-label="Stop" disabled>■</button>
       <button id="playerShuffle" class="btn player-icon player-toggle" title="Shuffle upcoming tracks" aria-label="Shuffle" aria-pressed="false">⇄</button>
       <button id="playerRepeat" class="btn player-icon player-toggle" title="Repeat off" aria-label="Repeat off" aria-pressed="false">↻</button>
-      <div class="player-queue-control"><button class="btn" id="bulkQueue" type="button" disabled title="Add selected tracks to the playback queue" aria-label="Add selected tracks to the playback queue">＋</button><button id="playerQueueButton" class="btn" title="Manage queue, music collections and history">Queue (0)</button></div>
+      <div class="player-queue-control"><button id="playerQueueButton" class="btn" title="Manage queue, music collections and history">Queue (0)</button><button class="btn" id="bulkQueue" type="button" disabled title="Add selected tracks to the playback queue" aria-label="Add selected tracks to the playback queue">＋</button></div>
     </div>
     <div class="player-timeline">
       <span id="playerElapsed">0:00</span><input id="playerSeek" type="range" min="0" max="1" step="0.1" value="0" aria-label="Playback position in seconds" disabled><span id="playerDuration">0:00</span>

@@ -46,6 +46,6 @@ test('invalid paths and corrupt files are rejected',()=>{
   assert.throws(()=>parse(JSON.stringify({version:1,playlists:[{name:'Bad',paths:['../x.mp3']}],history:[]})));
 });
 test('bulk queue actions are outside the hidden legacy selection bar',()=>{
-  assert.match(html,/<div class="player-queue-control">[\s\S]*?id="bulkQueue"[\s\S]*?id="playerQueueButton"[\s\S]*?<\/div>/);
+  assert.match(html,/<div class="player-queue-control">[\s\S]*?id="playerQueueButton"[\s\S]*?id="bulkQueue"[\s\S]*?<\/div>/);
   assert.equal((html.match(/id="bulkQueue"/g)||[]).length,1);
 });
