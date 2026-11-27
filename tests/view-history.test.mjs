@@ -26,7 +26,7 @@ function harness(){
     refreshMusicFacetOptions(){},updateMusicFilterStatus(){},updateResultsLine(){},rememberMusicSort(){}};
   const api=new Function('env',
     'const {el,images,albums,tags,favorites,trash,localStorage,Option,audioFormat,renderAlbumList,renderTagList,navButtonActive,renderCards,syncFilterControls,knownTags,refreshMusicFacetOptions,updateMusicFilterStatus,updateResultsLine,rememberMusicSort}=env;'+
-    "let root={},librarySwitching=false,selectedPaths=new Set(),playerPreviewPath=null,selectedAlbumNames=new Set(),selectedTagKeys=new Set(),selectedSpecialViews=new Set(),collectionOperator='OFF',folderLocked=true,activeView={type:'all'},filtered=[],visibleCount=80,musicSortDirection=1;const FOLDER_LOCK_KEY='lock',COLLECTION_OPERATOR_KEY='operator',musicFacetIds={artist:'musicArtist',album:'musicAlbum',genre:'musicGenre',year:'musicYear'};"+
+    "let root={},librarySwitching=false,browserResetting=false,selectedLibraryId=null,selectedPaths=new Set(),playerPreviewPath=null,selectedAlbumNames=new Set(),selectedTagKeys=new Set(),selectedSpecialViews=new Set(),collectionOperator='OFF',folderLocked=true,activeView={type:'all'},filtered=[],visibleCount=80,musicSortDirection=1;const FOLDER_LOCK_KEY='lock',COLLECTION_OPERATOR_KEY='operator',musicFacetIds={artist:'musicArtist',album:'musicAlbum',genre:'musicGenre',year:'musicYear'};"+
     'function clearSelection(){selectedPaths.clear();playerPreviewPath=null;}'+logic+facetReader+collections+history+filters+
     ";return {filterAndRender,goBackView,resetViewHistory,scheduleSearchNavigation,chooseCollection,chooseSpecialView,state:()=>({view:captureViewState(),results:filtered.map(x=>x.path),history:viewHistory.length,backDisabled:el('viewBack').disabled,selection:[...selectedPaths],preview:playerPreviewPath}),select:p=>{selectedPaths.add(p);playerPreviewPath=p;syncViewBack()},mode:(operator,locked)=>{collectionOperator=operator;folderLocked=locked;filterAndRender(false,'filter')},direction:()=>{musicSortDirection*=-1;filterAndRender(false,'filter')}}"
   )(env);
@@ -78,7 +78,7 @@ test('search coalesces, history is bounded and resets per library',()=>{
 });
 test('header places Back between format and view, with compact search before folder and format',()=>{
   const header=html.slice(html.indexOf('<header class="top">'),html.indexOf('</header>'));
-  assert.match(header,/id="query"[^>]*>\s*<select id="folder"[\s\S]*?id="folderLock"[\s\S]*?id="kind"[\s\S]*?id="viewBack"[\s\S]*?id="layoutToggle"/);
+  assert.match(header,/id="query"[^>]*>\s*(?:<div id="folderControl">)?<select id="folder"[\s\S]*?id="folderLock"[\s\S]*?id="kind"[\s\S]*?id="viewBack"[\s\S]*?id="layoutToggle"/);
   assert.match(html,/\.top > \.filters > #query\{[\s\S]*?max-width:220px;[\s\S]*?margin-left:auto;/);
   assert.match(js,/el\('viewBack'\)\.onclick=goBackView/);
   assert.match(js,/async function activateLibrary\(picked\)[\s\S]*?resetViewHistory\(\)/);

@@ -73,3 +73,7 @@ FFmpeg is needed to generate all six demo formats; otherwise the generator falls
 Licensed under GNU GPL v3; see [LICENSE](LICENSE). Adapted from Freedom Gallery, modified in November 2026.
 
 The optional large demo uses short tagged WAV files grouped into artists/albums with generated covers. The nine-track demo and CI defaults are unchanged. Queue and History support dragging from empty space in either direction, including scrollable lists; clicking empty space clears the active list selection without interfering with its action buttons.
+
+### Remembered view and search scope
+
+Each remembered library restores its own last folder, search, format, album/collection/tag/Favorites/Trash combination, OFF/OR/AND mode and folder lock, music metadata filters and sorting. The sidebar mode and search are also remembered. Clear cache removes saved views; removing a remembered library forgets its view. An unlocked folder still scopes ordinary browsing, but a non-empty search or selected collection criterion searches the whole library (other filters remain active). Lock folder limits all results to that folder and its descendants. Space in an open track preview controls playback just like its Play button.
