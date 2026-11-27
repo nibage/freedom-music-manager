@@ -214,6 +214,21 @@ try {
   );
   await page.waitForTimeout(450);
   await snap('detailed-dark');
+  // Both view modes retain the same label, with pressed state conveying the mode.
+  if(!(await page.locator('#layoutToggle').textContent()).includes('Detailed View'))throw Error('Detailed view label changed');
+  await page.setViewportSize({width:1280,height:720});
+  await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+  await page.waitForFunction(()=>{
+    const header=document.querySelector('.top').getBoundingClientRect();
+    const filters=document.getElementById('musicFilters').getBoundingClientRect();
+    return window.scrollY>0 && Math.abs(filters.top-header.bottom)<3;
+  });
+  await page.locator('#themeSelect').selectOption('light');
+  await page.mouse.move(0,0);
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#gallery .photo')).backgroundColor==='rgb(255, 255, 255)');
+  await page.locator('#themeSelect').selectOption('dark');
+  await page.setViewportSize({width:2048,height:1080});
+  await page.evaluate(()=>window.scrollTo(0,0));
   await page.locator('#layoutToggle').click();
   await page.waitForFunction(() =>
     document.getElementById('layoutToggle')?.getAttribute('aria-pressed') === 'false'

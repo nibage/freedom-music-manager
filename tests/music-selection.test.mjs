@@ -49,7 +49,7 @@ test('without an active track selection prepares a preview and Play starts it',(
 test('selection toolbar is hidden in both layouts and queue actions live in footer',()=>{
   assert.match(html,/#selectionBar,\.detailed-mode #selectionBar\{display:none!important\}/);
   const footer=html.slice(html.indexOf('<footer id="musicPlayer"'),html.indexOf('</footer>'));
-  assert.match(footer,/id="playerTitle"[\s\S]*?id="bulkPlayNext"[\s\S]*?id="playerPlay"[\s\S]*?id="playerQueueButton"[\s\S]*?id="bulkQueue"/);
+  assert.match(footer,/id="playerTitle"[\s\S]*?id="bulkPlayNext"[\s\S]*?id="playerPlay"[\s\S]*?id="bulkQueue"[\s\S]*?id="playerQueueButton"/);
   assert.doesNotMatch(js,/playerPrepared/);
   assert.doesNotThrow(()=>new Function(js));
 });
