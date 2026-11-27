@@ -659,10 +659,10 @@ body.show-selection-actions.has-selection .chip-action-label {z-index:5;pointer-
   border:0!important;
 }
 .top > .filters > #folder{
-  flex:0 1 190px;
-  width:190px;
+  flex:0 1 254px;
+  width:254px;
   min-width:145px;
-  max-width:190px;
+  max-width:254px;
 }
 .top > .filters > .folder-lock{
   flex:0 0 auto;
@@ -670,10 +670,10 @@ body.show-selection-actions.has-selection .chip-action-label {z-index:5;pointer-
   padding-inline:7px;
 }
 .top > .filters > #kind{
-  flex:0 0 184px;
-  width:184px;
-  min-width:184px;
-  max-width:184px;
+  flex:0 0 120px;
+  width:120px;
+  min-width:120px;
+  max-width:120px;
 }
 .top > .filters > #layoutToggle{
   flex:0 0 auto;
@@ -720,8 +720,8 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
 }
 @media(max-width:990px){
   .top > .filters{flex-wrap:wrap;justify-content:flex-start;}
-  .top > .filters > #folder{flex:1 1 180px;width:auto;max-width:none;}
-  .top > .filters > #kind{flex:1 1 184px;min-width:184px;max-width:none;width:auto;}
+  .top > .filters > #folder{flex:1 1 244px;width:auto;max-width:none;}
+  .top > .filters > #kind{flex:0 1 120px;min-width:120px;max-width:120px;width:120px;}
   .top > .filters > #layoutToggle{flex:0 0 auto;}
 }
 @media(max-width:680px){
@@ -780,10 +780,10 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
     flex-wrap:nowrap;
   }
   .top > .filters > #folder{
-    flex:0 0 160px;
-    width:160px;
-    min-width:160px;
-    max-width:160px;
+    flex:0 0 216px;
+    width:216px;
+    min-width:216px;
+    max-width:216px;
   }
   .top > .filters > .folder-lock{
     flex:0 0 65px;
@@ -791,10 +791,10 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
     max-width:65px;
   }
   .top > .filters > #kind{
-    flex:0 0 176px;
-    width:176px;
-    min-width:176px;
-    max-width:176px;
+    flex:0 0 120px;
+    width:120px;
+    min-width:120px;
+    max-width:120px;
   }
   .top > .filters > #layoutToggle{
     flex:0 0 auto;
@@ -814,10 +814,10 @@ html[data-theme="light"] .top > .filters > input::placeholder{color:var(--muted)
     white-space:nowrap;
   }
   .top-right .recent-chooser{
-    flex:0 0 136px;
-    width:136px;
-    min-width:136px;
-    max-width:136px;
+    flex:0 0 180px;
+    width:180px;
+    min-width:180px;
+    max-width:180px;
   }
   .top-right .theme-label{
     flex:0 0 auto;
@@ -1158,6 +1158,10 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
 #queueCollectionControls .queue-collection-search{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:7px;flex:1 1 190px;min-width:0}
 #queueCollectionQuery,#playlistSelect{width:100%;min-width:0;max-width:100%;box-sizing:border-box;min-height:32px;font-size:12px;padding:4px 7px}
 @media(max-width:540px){#queueCollectionControls .queue-collection-search{flex-basis:100%}}
+/* Redistribute the removed theme label's space to the library chooser. */
+@media(max-width:1799px){
+  .top-right .recent-chooser{width:180px;min-width:115px;max-width:180px;flex:0 1 180px}
+}
 </style>
 </head>
 <body>
@@ -1172,7 +1176,7 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
       <input id="folderLock" type="checkbox" checked aria-label="Lock selected folder" />
       <span class="folder-lock-icons" aria-hidden="true"><span id="folderLockIcon">🔒</span><span>📁</span></span>
     </label>
-    <select id="kind" aria-label="Audio format"><option value="">All audio formats</option><option value="mp3">MP3</option><option value="flac">FLAC</option><option value="wav">WAV</option><option value="ogg">OGG</option><option value="m4a">M4A</option><option value="aac">AAC</option><option value="opus">OPUS</option><option value="aiff">AIFF</option><option value="aif">AIF</option><option value="alac">ALAC</option><option value="wma">WMA</option></select>
+    <select id="kind" aria-label="Audio format"><option value="">All formats</option><option value="mp3">MP3</option><option value="flac">FLAC</option><option value="wav">WAV</option><option value="ogg">OGG</option><option value="m4a">M4A</option><option value="aac">AAC</option><option value="opus">OPUS</option><option value="aiff">AIFF</option><option value="aif">AIF</option><option value="alac">ALAC</option><option value="wma">WMA</option></select>
     <button class="btn" id="viewBack" type="button" disabled title="Return to the previous filter results" aria-label="Back to previous results">← Back</button>
     <button class="btn layout-toggle" id="layoutToggle" type="button" aria-pressed="false" title="Switch between classic cards and detailed track list. Your choice is saved.">☰ Detailed View</button>
   </div>
@@ -1181,7 +1185,7 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
     <select id="recentFolders" class="recent-chooser" aria-label="Recently opened libraries" title="Recently used libraries" hidden><option value="">Recent libraries…</option></select>
     <button class="btn" id="forget" hidden title="Remove the current library from this browser's remembered list. Files are unchanged.">Remove library</button>
     <button class="btn primary" id="openFolder">📁 Open library</button>
-    <label class="theme-label" for="themeSelect">Theme
+    <label class="theme-label" for="themeSelect">
       <select id="themeSelect" title="Follow your system theme or choose Light or Dark" aria-label="Color theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
     </label>
   </div>
