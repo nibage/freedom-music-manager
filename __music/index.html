@@ -1186,6 +1186,9 @@ html[data-theme="light"] #headerRelativePath{color:#f0e4e7}
 #queueRemoveSelected[hidden]{display:none!important}
 #queueRemoveSelected{white-space:nowrap}
 @media(max-width:620px){#queuePagination{flex-wrap:wrap}}
+/* Reserve the viewport scrollbar gutter when a filter changes the document height. */
+html{scrollbar-gutter:stable}
+#gallery{overflow-anchor:none}
 </style>
 </head>
 <body>
@@ -1638,7 +1641,7 @@ function goBackView(){
     localStorage.setItem(COLLECTION_OPERATOR_KEY,collectionOperator);
   }catch(_){}
   syncFilterControls();clearSelection();visibleCount=80;
-  renderAlbumList();renderTagList();filterAndRender();
+  renderAlbumList();renderTagList();filterAndRender(false,'',true);
 }
 
 function typeOf(path){return AUDIO_EXT.test(path)?'audio':null}
@@ -3656,11 +3659,12 @@ async function removeCollection(){
 function renderAlbumSelector(){const s=el('albumSelect'),old=s.value;s.replaceChildren(new Option('Choose album',''));for(const name of [...albums.keys()].sort((a,b)=>a.localeCompare(b,'cs')))s.add(new Option(name,name));if(albums.has(old))s.value=old;updateAlbumButton()}
 function updateFolderDisplay(){
   const select=el('folder'),path=select.value;
-  el('folderLeafText').textContent=path?path.split('/').at(-1):'All folders';
-  select.title=path||'All folders';
-  const label=el('headerRelativePath');label.textContent=path||'All folders';label.title=path||'All folders';
+  const leaf=el('folderLeafText'),label=el('headerRelativePath'),full=path||'All folders',short=path?path.split('/').at(-1):full;
+  if(leaf&&leaf.textContent!==short)leaf.textContent=short;
+  if(select.title!==full)select.title=full;
+  if(label){if(label.textContent!==full)label.textContent=full;if(label.title!==full)label.title=full}
 }
-function filterAndRender(metadataRefresh=false,navigation='',preserveCards=false){
+function filterAndRender(metadataRefresh=false,navigation='',preserveCards=metadataRefresh||!!navigation){
   updateFolderDisplay();
   const previous=filtered;
   const q=el('query').value.trim(),folder=el('folder').value,kind=el('kind').value,facets=readMusicFacets();
@@ -3714,7 +3718,12 @@ function renderCards(){
     observer.unobserve(e.target);const p=e.target.dataset.path;if(p&&byPath.has(p))queueThumb(p,e.target);
   }},{rootMargin:'320px'});
   for(const item of slice){
-    const retained=existing.get(item.path);if(retained){placeCard(retained);continue}
+    const retained=existing.get(item.path);if(retained){
+      retained.classList.toggle('in-trash',trash.has(item.path));
+      const heart=retained.querySelector('.heart');if(heart){const on=favorites.has(item.path);heart.classList.toggle('on',on);const symbol=on?'♥':'♡';if(heart.textContent!==symbol)heart.textContent=symbol}
+      if(retained.musicRenderItem!==item)updateMusicCaption(retained,item);retained.musicRenderItem=item;
+      placeCard(retained);continue
+    }
     const card=document.createElement('article');card.className='photo'+(trash.has(item.path)?' in-trash':'')+(selectedPaths.has(item.path)?' is-selected':'');card.dataset.path=item.path;
     let media,thumbnail;
     if(item.kind==='audio'){
@@ -3737,9 +3746,8 @@ function renderCards(){
     };
     meta.onclick=selectFromCaption;
     meta.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){selectFromCaption(e)}};
-    card.append(media,heart,meta);updateMusicCaption(card,item);placeCard(card);musicCardsByPath.set(item.path,card);if(preserve&&thumbs.has(item.path))thumbnail.src=thumbs.get(item.path);else observer.observe(thumbnail);
+    card.append(media,heart,meta);updateMusicCaption(card,item);card.musicRenderItem=item;placeCard(card);musicCardsByPath.set(item.path,card);if(preserve&&thumbs.has(item.path))thumbnail.src=thumbs.get(item.path);else if(thumbs.has(item.path))thumbnail.src=thumbs.get(item.path);else observer.observe(thumbnail);
   }
-  el('results').textContent=(activeView.type==='trash'?'Trash · ':(activeView.type==='tags'?'Tags '+selectedTagKeys.size+' · ':''))+filtered.length.toLocaleString('cs-CZ')+' results · showing '+slice.length.toLocaleString('cs-CZ')+' / '+images.length.toLocaleString('cs-CZ')+' files';
   // Always show the action in Trash, even if the search currently filters its cards.
   // It deletes the whole indexed Trash, not merely the visible/filter-matching subset.
   const trashAction=el('deleteAllTrash');
@@ -4485,7 +4493,8 @@ function updateResultsLine(){
   if(node){
     // Show matched-result count and the visible/total-file count, without
     // repeating the file total in the separate loading-status indicator.
-    node.textContent=filtered.length.toLocaleString('cs-CZ')+' results · showing '+slice.toLocaleString('cs-CZ')+' / '+images.length.toLocaleString('cs-CZ')+' files'+selectionCountText();
+    const message=filtered.length.toLocaleString('cs-CZ')+' results · showing '+slice.toLocaleString('cs-CZ')+' / '+images.length.toLocaleString('cs-CZ')+' files'+selectionCountText();
+    if(node.textContent!==message)node.textContent=message;
     node.title=prefix+filtered.length.toLocaleString('cs-CZ')+' results · '+node.textContent;
   }
 }

@@ -99,6 +99,22 @@ try {
   await page.locator('#openFolder').click();
   await page.waitForFunction(() => typeof images !== 'undefined' && images.length === 9 && !scanInProgress && !musicIndexing, null, { timeout: 45000 });
   await page.waitForFunction(() => document.querySelectorAll('#gallery .photo').length === 9);
+  await page.waitForFunction(()=>!musicIndexing);
+  await page.waitForFunction(()=>[...document.querySelectorAll('#gallery .thumb')].some(x=>x.complete&&x.naturalWidth>0));
+  const baseline=await page.evaluate(()=>{
+    const cards=[...document.querySelectorAll('#gallery .photo')];
+    window.__retainedFilterCards=cards.map(card=>({card,thumb:card.querySelector('.thumb'),src:card.querySelector('.thumb').getAttribute('src')}));
+    const b=document.getElementById('gallery').getBoundingClientRect();return {width:b.width,count:cards.length};
+  });
+  for(const control of ['#folderLockLabel','#collectionOperator','#collectionOperator','#collectionOperator','#folderLockLabel']){
+    await page.locator(control).click();
+    await page.waitForFunction(base=>{
+      const cards=[...document.querySelectorAll('#gallery .photo')],b=document.getElementById('gallery').getBoundingClientRect();
+      return cards.length===base.count&&Math.abs(b.width-base.width)<1&&window.__retainedFilterCards.every((entry,i)=>entry.card===cards[i]&&entry.thumb===cards[i].querySelector('.thumb')&&(!entry.src||entry.thumb.getAttribute('src')===entry.src||!entry.src.startsWith('blob:')));
+    },baseline);
+  }
+  console.log('PASS: no-op lock/operator toggles keep card nodes, loaded blobs and grid width');
+
   await page.waitForFunction(() => [...document.querySelectorAll('#gallery img.thumb')].some(img => img.src.startsWith('blob:')));
   // Metadata facet and format filtering work against the generated files.
   await page.locator('#musicArtist').selectOption('v:aurora signals');

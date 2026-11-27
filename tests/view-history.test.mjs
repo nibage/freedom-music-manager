@@ -5,7 +5,7 @@ const html=readFileSync(new URL('../__music/index.html',import.meta.url),'utf8')
 const js=html.match(/<script>([\s\S]*?)<\/script>/)[1];
 const slice=(a,b)=>{const start=js.indexOf(a),end=js.indexOf(b,start);assert.ok(start>=0&&end>start);return js.slice(start,end)};
 const history=slice('const VIEW_HISTORY_LIMIT=50;','function typeOf(path){');
-const filters=slice('function filterAndRender(metadataRefresh=','function renderCards(){');
+const filters='function updateFolderDisplay(){}\n'+slice('function filterAndRender(metadataRefresh=','function renderCards(){');
 const collections=slice('function currentAlbum(){','function visibleAlbumCount(paths){');
 const logic=html.match(/\/\* BEGIN MUSIC FILTER LOGIC \*\/([\s\S]*?)\/\* END MUSIC FILTER LOGIC \*\//)[1];
 const facetReader=slice('function readMusicFacets(){','function refreshMusicFacetOptions(');
