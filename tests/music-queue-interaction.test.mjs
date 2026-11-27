@@ -33,7 +33,7 @@ test('playing audio pauses regardless of panel and button reflects playback',()=
   api.toggleQueuePanelPlayback();assert.deepEqual(events,['pause','update']);api.updateQueuePlayButton();assert.equal(button.textContent,'▶ Play');
 });
 test('fixed size dialog and hover badge markup',()=>{
-  assert.match(html,/#musicQueueDialog \{[^}]*height:90dvh/);
+  assert.match(html,/#musicQueueDialog \{width:min\(760px,96vw\);height:90dvh/);
   assert.match(html,/\.player-queue-control:hover #bulkQueue:not\(\[disabled\]\)/);
   assert.match(html,/id="queueAddResults"[^>]*>Add current results/);
   const footer=html.slice(html.indexOf('<footer id="musicPlayer"'),html.indexOf('</footer>'));

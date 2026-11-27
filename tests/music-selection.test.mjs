@@ -6,7 +6,7 @@ const js=html.match(/<script>([\s\S]*?)<\/script>/)[1];
 const slice=(a,b)=>{const x=js.indexOf(a),y=js.indexOf(b,x);assert.ok(x>=0&&y>x);return js.slice(x,y)};
 const display=slice('function displayedPlayerPath(){','function updatePlayerControls(){');
 const stage=slice('function prepareTrack(path){','async function startTrack(');
-const toggle=slice('function toggleMusic(){','function stepMusic(');
+const toggle=slice('function selectedPlaybackPaths(){','function stepMusic(');
 const click=slice('function activateCard(path,event){','// Desktop marquee selection');
 const queueLogic=slice('function queueInsert(queue,paths,current,next,eligible){','function shuffleUpcoming(');
 function harness({playing='a',queue=['a','b']}={}){
@@ -16,10 +16,10 @@ function harness({playing='a',queue=['a','b']}={}){
     queueThumb(){},updatePlayerControls(){},syncViewBack(){},DEFAULT_COVER:'cover',playing,queue};
   const api=new Function('env',
     'const {nodes,filtered,events,el,byPath,musicTitle,queueThumb,updatePlayerControls,syncViewBack,DEFAULT_COVER}=env;'+
-    "let playerPath=env.playing,playerPreviewPath=null,playerQueue=env.queue.slice(),playerURL=playerPath?'blob:old':null,playerRequest=7,playerLoading=false,playerWantsPlay=false,deletingMedia=false,librarySwitching=false,suppressCardClick=false,selectedPaths=new Set(),selectionAnchor=null,visibleCount=80;"+
-    "const playerAudio={paused:!playerPath,ended:false,currentTime:12,pause(){events.push('pause')}};const playerEligible=p=>byPath.has(p);function resetQueueOrder(){events.push('reset-order')}function startTrack(path,newQueue){events.push(['start',path,newQueue]);}function resumePlayer(){events.push('resume')}function updateSelectionUI(){if(playerPreviewPath&&!selectedPaths.has(playerPreviewPath))dismissTrackPreview()}function clearSelection(){selectedPaths.clear();selectionAnchor=null;dismissTrackPreview();updateSelectionUI()}"+
+    "let playerPath=env.playing,playerPreviewPath=null,playerSelectionKey=null,playerRepeat='all',currentPath='c',playerQueue=env.queue.slice(),playerURL=playerPath?'blob:old':null,playerRequest=7,playerLoading=false,playerWantsPlay=false,deletingMedia=false,librarySwitching=false,suppressCardClick=false,selectedPaths=new Set(),selectionAnchor=null,visibleCount=80;"+
+    "const playerAudio={paused:!playerPath,ended:false,currentTime:12,pause(){events.push('pause')}};const playerEligible=p=>byPath.has(p);function resetQueueOrder(){events.push('reset-order')}function setPlayerQueue(paths){playerQueue=paths.slice();playerSelectionKey=null;resetQueueOrder()}function startTrack(path,newQueue){events.push(['start',path,newQueue]);}function resumePlayer(){events.push('resume')}function updateSelectionUI(){if(playerPreviewPath&&!selectedPaths.has(playerPreviewPath))dismissTrackPreview()}function clearSelection(){selectedPaths.clear();selectionAnchor=null;dismissTrackPreview();updateSelectionUI()}"+
     display+stage+toggle+click+queueLogic+
-    ";return {prepareTrack,dismissTrackPreview,toggleMusic,click:(path,mod={})=>activateCard(path,{preventDefault(){},stopPropagation(){},...mod}),state:()=>({path:playerPath,preview:playerPreviewPath,shown:displayedPlayerPath(),queue:playerQueue.slice(),url:playerURL,request:playerRequest,time:playerAudio.currentTime,paused:playerAudio.paused,selection:[...selectedPaths],title:el('playerTitle').textContent})};"
+    ";return {prepareTrack,dismissTrackPreview,toggleMusic,toggleViewerPlayback,click:(path,mod={})=>activateCard(path,{preventDefault(){},stopPropagation(){},...mod}),state:()=>({path:playerPath,preview:playerPreviewPath,shown:displayedPlayerPath(),queue:playerQueue.slice(),url:playerURL,request:playerRequest,time:playerAudio.currentTime,paused:playerAudio.paused,selection:[...selectedPaths],title:el('playerTitle').textContent})};"
   )(env);
   return {api,events};
 }
@@ -36,20 +36,20 @@ test('selecting another track only changes the preview, not current playback or 
   assert.equal(after.preview,'c');assert.equal(after.title,'C');assert.deepEqual(events,[]);
   api.dismissTrackPreview();assert.equal(api.state().shown,'a');assert.equal(api.state().title,'A');assert.equal(api.state().url,before.url);
 });
-test('Play explicitly starts the preview and preserves the existing queue',()=>{
+test('Play replaces the existing queue with only the selected track',()=>{
   const {api,events}=harness();api.click('c');api.toggleMusic();
-  assert.deepEqual(api.state().queue,['a','c','b']);
+  assert.deepEqual(api.state().queue,['c']);
   assert.deepEqual(events,['reset-order',['start','c',false]]);
 });
 test('without an active track selection prepares a preview and Play starts it',()=>{
   const {api,events}=harness({playing:null,queue:[]});api.click('b');
   assert.equal(api.state().path,null);assert.equal(api.state().preview,'b');assert.deepEqual(events,[]);
-  api.toggleMusic();assert.deepEqual(events,[['start','b',true]]);
+  api.toggleMusic();assert.deepEqual(events,['reset-order',['start','b',false]]);
 });
 test('selection toolbar is hidden in both layouts and queue actions live in footer',()=>{
   assert.match(html,/#selectionBar,\.detailed-mode #selectionBar\{display:none!important\}/);
   const footer=html.slice(html.indexOf('<footer id="musicPlayer"'),html.indexOf('</footer>'));
-  assert.match(footer,/id="playerTitle"[\s\S]*?id="bulkPlayNext"[\s\S]*?id="playerPlay"[\s\S]*?id="playerQueueButton"[\s\S]*?id="bulkQueue"/);
+  assert.match(footer,/id="playerTitle"[\s\S]*?id="playerQueueButton"[\s\S]*?id="bulkQueue"[\s\S]*?id="bulkPlayNext"[\s\S]*?id="playerPlay"/);
   assert.doesNotMatch(js,/playerPrepared/);
   assert.doesNotThrow(()=>new Function(js));
 });
@@ -73,3 +73,6 @@ test('cover opens details instead of selecting; both redundant info buttons are 
   assert.match(js,/el\('playerCoverButton'\)\.onclick=\(\)=>\{const path=displayedPlayerPath\(\);if\(path\)void openViewer\(path\)\}/);
   assert.doesNotMatch(html,/playerDetails|track-info-button/);
 });
+
+test('multi-selection replaces queue in results order from either player',()=>{for(const method of ['toggleMusic','toggleViewerPlayback']){const {api,events}=harness();api.click('c');api.click('b',{ctrlKey:true});api[method]();assert.deepEqual(api.state().queue,['b','c']);assert.deepEqual(events,['reset-order',['start','b',false]]);}});
+test('preview without selection plays just the viewed track',()=>{const {api,events}=harness();api.toggleViewerPlayback();assert.deepEqual(api.state().queue,['c']);assert.deepEqual(events,['reset-order',['start','c',false]]);});

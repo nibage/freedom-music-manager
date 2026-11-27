@@ -938,7 +938,7 @@ body {padding-bottom:var(--music-player-height)}
 .player-queue-control:hover #bulkQueue:not([disabled]),.player-queue-control:focus-within #bulkQueue:not([disabled]),#bulkQueue:focus-visible{display:inline-flex;align-items:center;justify-content:center}
 @media (hover:none){.player-queue-control #bulkQueue:not([disabled]){display:inline-flex;align-items:center;justify-content:center}}
 #musicPlayer .player-toggle[aria-pressed=true] {border-color:var(--accent);color:var(--accent);font-weight:700}
-#musicQueueDialog {width:96vw;height:90dvh;max-width:96vw;max-height:90dvh;box-sizing:border-box;background:var(--panel);color:var(--text)}
+#musicQueueDialog {width:min(760px,96vw);height:90dvh;max-width:96vw;max-height:90dvh;box-sizing:border-box;background:var(--panel);color:var(--text)}
 #musicQueueDialog .queue-body {padding:18px;display:flex;flex-direction:column;gap:12px;height:100%;min-height:0;box-sizing:border-box;overflow:auto}
 #musicQueueDialog .queue-body > :not(.queue-list){flex-shrink:0}
 #musicQueueDialog .queue-list{flex:1 1 0;min-height:80px;max-height:none;scrollbar-gutter:stable}
@@ -975,11 +975,11 @@ body {padding-bottom:var(--music-player-height)}
 .music-filter-fields select {font-size:12px;flex:1 1 100px;min-width:90px;max-width:100%;width:0;height:32px;padding:4px 6px}
 .music-filter-fields #musicSort {flex:1.45 1 154px;min-width:145px}
 .music-filter-fields #musicLength {flex:1.1 1 115px;min-width:100px}
-#musicFilterReset,#musicSortDirection {font-size:12px;flex:0 0 auto;height:32px;min-height:32px;padding:4px 9px;white-space:nowrap}
+#musicFilterReset,#musicSortDirection,#musicSelectAll {font-size:12px;flex:0 0 auto;height:32px;min-height:32px;padding:4px 9px;white-space:nowrap}
 @media(max-width:520px){
   .music-filter-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
   .music-filter-fields select,.music-filter-fields #musicSort,.music-filter-fields #musicLength {width:100%;min-width:0}
-  #musicFilterReset,#musicSortDirection {width:100%;min-width:0}
+  #musicFilterReset,#musicSortDirection,#musicSelectAll {width:100%;min-width:0}
 }
 
 /* RC 2: keep long collection names and their actions inside narrow sidebars. */
@@ -1084,6 +1084,47 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
 #playerCoverButton:disabled,#playerCoverButton:disabled #playerCover{cursor:default}
 #playerCoverButton:not(:disabled):hover{box-shadow:0 0 0 2px var(--ok)}
 #playerCoverButton:focus-visible{outline:2px solid var(--ok);outline-offset:3px}
+/* Queue and Play next stay visible in their own left-hand action column. */
+#musicPlayer .player-selection-actions .player-queue-control{width:100%}
+#musicPlayer #playerQueueButton{width:100%;padding-right:35px}
+#musicPlayer .player-selection-actions #bulkQueue{padding:1px 5px;min-height:23px}
+#musicPlayer .player-transport{flex-wrap:wrap}
+#viewer .viewer{grid-template-rows:minmax(0,1fr) auto!important}
+#viewerPlayer{grid-column:1/-1;display:grid;grid-template-columns:minmax(75px,1fr) max-content minmax(210px,1.5fr) minmax(95px,.55fr);gap:10px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);background:var(--panel);color:var(--text);min-width:0}
+#viewerPlayer .player-track{min-width:0;grid-column:auto;grid-row:auto}
+#viewerPlayerTitle,#viewerPlayerArtist{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#viewerPlayerTitle{font-weight:700;font-size:13px}
+#viewerPlayer .player-selection-actions{display:flex;flex-direction:column;gap:4px}
+#viewerPlayer .btn{width:auto;min-height:30px;font-size:12px;padding:4px 8px;white-space:nowrap}
+#viewerPlayer .player-queue-control{width:100%}
+#viewerPlayer #viewerQueueButton{width:100%;padding-right:35px}
+#viewerPlayer #viewerQueueTrack{display:none;position:absolute;right:5px;top:50%;transform:translateY(-50%);z-index:5;min-width:25px;min-height:23px;padding:1px 5px;border:1px solid var(--ok);border-radius:999px;background:var(--panel);color:var(--ok);font-size:14px;font-weight:700}
+#viewerPlayer .player-queue-control:hover #viewerQueueTrack:not([disabled]),#viewerPlayer .player-queue-control:focus-within #viewerQueueTrack:not([disabled]){display:inline-flex;align-items:center;justify-content:center}
+@media(hover:none){#viewerPlayer #viewerQueueTrack:not([disabled]){display:inline-flex;align-items:center;justify-content:center}}
+#viewerPlayer .player-center,#viewerPlayer .player-volume{grid-column:auto;grid-row:auto}
+#viewerPlayer .player-transport{flex-wrap:wrap}
+#viewerPlayer .player-icon{min-width:30px;height:34px;font-size:16px;line-height:1}
+#viewerPlayer .player-main{min-width:40px;height:40px;background:var(--accent);color:var(--bg);border-color:var(--accent);font-size:20px}
+#viewerPlayer .player-toggle[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+#viewerPlayer input[type=range]{min-width:0;width:100%;flex:1;padding:0;accent-color:var(--accent);background:transparent;border:0}
+#viewerPlayer #viewerPlayTrack[aria-label="Pause"]{display:inline-flex;align-items:center;justify-content:center}
+#viewerPlayer #viewerPlayTrack[aria-label="Pause"]::before{content:"";display:block;width:15px;height:18px;background:linear-gradient(to right,currentColor 0 5px,transparent 5px 10px,currentColor 10px 15px)}
+#viewer .stage #bigImage:not([hidden]){max-height:min(45vh,calc(100% - 16px))!important}
+@media(max-width:840px){
+  #viewer .viewer{grid-template-rows:minmax(0,38%) minmax(0,1fr) auto!important}
+  #viewerPlayer{grid-template-columns:minmax(0,1fr) max-content minmax(70px,.5fr);gap:6px;padding:6px}
+  #viewerPlayer .player-center{grid-column:1/-1;grid-row:2}
+  #viewerPlayer .player-selection-actions{flex-direction:row}
+  #viewerPlayer .player-volume{grid-column:3;grid-row:1}
+  #viewerPlayer .player-track{grid-column:1;grid-row:1}
+}
+@media(max-width:480px){
+  #viewerPlayer{grid-template-columns:minmax(0,1fr) minmax(70px,.45fr)}
+  #viewerPlayer .player-selection-actions{grid-column:1/-1;grid-row:2;justify-content:center}
+  #viewerPlayer .player-selection-actions .player-queue-control{width:auto}
+  #viewerPlayer .player-center{grid-row:3}
+  #viewerPlayer .player-volume{grid-column:2}
+}
 </style>
 </head>
 <body>
@@ -1155,6 +1196,7 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
         <select id="musicSort" aria-label="Sort tracks"><option value="auto">Sort: default order</option><option value="title">Sort: title</option><option value="artist">Sort: artist</option><option value="album">Sort: album / track</option><option value="genre">Sort: genre</option><option value="year">Sort: year</option><option value="duration">Sort: duration</option><option value="format">Sort: format</option><option value="name">Sort: filename</option><option value="path">Sort: file path</option></select>
         <button id="musicSortDirection" class="btn" type="button" aria-label="Sort ascending" title="Change sort direction" disabled>↑ Asc</button>
         <button id="musicFilterReset" type="button" class="btn" title="Clear metadata filters, search, format and folder; keep selected collections and tags" disabled>Reset filters</button>
+        <button id="musicSelectAll" type="button" class="btn" title="Select all playable tracks in the filtered results, including those not yet shown" disabled>Select all</button>
       </div>
       <div id="musicFilterSummary" hidden></div>
     </section>
@@ -1194,6 +1236,7 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
     </div>
   </div>
   <div class="player-selection-actions" aria-label="Actions for selected tracks">
+    <div class="player-queue-control"><button id="playerQueueButton" class="btn" title="Manage queue, music collections and history">Queue (0)</button><button class="btn" id="bulkQueue" type="button" disabled title="Add selected tracks to the playback queue" aria-label="Add selected tracks to the playback queue">＋</button></div>
     <button class="btn" id="bulkPlayNext" type="button" disabled title="Move selected tracks after the current track">Play next</button>
   </div>
   <div class="player-center">
@@ -1204,7 +1247,6 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
       <button id="playerStop" class="btn player-icon" title="Stop playback" aria-label="Stop" disabled>■</button>
       <button id="playerShuffle" class="btn player-icon player-toggle" title="Shuffle upcoming tracks" aria-label="Shuffle" aria-pressed="false">⇄</button>
       <button id="playerRepeat" class="btn player-icon player-toggle" title="Repeat off" aria-label="Repeat off" aria-pressed="false">↻</button>
-      <div class="player-queue-control"><button id="playerQueueButton" class="btn" title="Manage queue, music collections and history">Queue (0)</button><button class="btn" id="bulkQueue" type="button" disabled title="Add selected tracks to the playback queue" aria-label="Add selected tracks to the playback queue">＋</button></div>
     </div>
     <div class="player-timeline">
       <span id="playerElapsed">0:00</span><input id="playerSeek" type="range" min="0" max="1" step="0.1" value="0" aria-label="Playback position in seconds" disabled><span id="playerDuration">0:00</span>
@@ -1233,7 +1275,7 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
 </dialog>
 <dialog id="viewer">
   <div class="viewer">
-    <div class="stage" id="viewerStage"><button id="prev" title="Previous (←)">‹</button><img id="bigImage" alt="Album cover" hidden><button id="viewerPlayTrack" type="button" class="btn" aria-label="Play this track">▶ Play track</button><div class="viewer-queue-actions"><button id="viewerQueueTrack" type="button" class="btn">＋ Queue</button><button id="viewerPlayNext" type="button" class="btn">Play next</button></div><button id="next" title="Next (→)">›</button></div>
+    <div class="stage" id="viewerStage"><button id="prev" title="Previous (←)">‹</button><img id="bigImage" alt="Album cover" hidden><button id="next" title="Next (→)">›</button></div>
     <section class="details">
       <button class="close" id="closeViewer" title="Close (Esc)">×</button>
       <h2 id="fileLabel"></h2><div id="musicViewerMetadata"></div><div id="pathLabel"></div>
@@ -1265,6 +1307,25 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
       </div>
       <p class="trash-note" id="trashWarning" hidden>In-gallery Trash hides this file but keeps the original on disk. Permanent deletion bypasses your operating system's Recycle Bin.</p>
     </section>
+    <footer id="viewerPlayer" aria-label="Preview music player">
+      <div class="player-track"><div class="player-description"><div id="viewerPlayerTitle"></div><div id="viewerPlayerArtist" class="small"></div></div></div>
+      <div class="player-selection-actions" aria-label="Queue actions">
+        <div class="player-queue-control"><button id="viewerQueueButton" type="button" class="btn">Queue (0)</button><button id="viewerQueueTrack" type="button" class="btn" disabled aria-label="Add tracks to queue">＋</button></div>
+        <button id="viewerPlayNext" type="button" class="btn">Play next</button>
+      </div>
+      <div class="player-center">
+        <div class="player-transport">
+          <button id="viewerPlayerPrev" type="button" class="btn player-icon" aria-label="Previous track">⏮</button>
+          <button id="viewerPlayTrack" type="button" class="btn player-icon player-main" aria-label="Play">▶</button>
+          <button id="viewerPlayerNext" type="button" class="btn player-icon" aria-label="Next track">⏭</button>
+          <button id="viewerPlayerStop" type="button" class="btn player-icon" aria-label="Stop">■</button>
+          <button id="viewerPlayerShuffle" type="button" class="btn player-icon player-toggle" aria-label="Shuffle" aria-pressed="false">⇄</button>
+          <button id="viewerPlayerRepeat" type="button" class="btn player-icon player-toggle" aria-label="Repeat off" aria-pressed="false">↻</button>
+        </div>
+        <div class="player-timeline"><span id="viewerPlayerElapsed">0:00</span><input id="viewerPlayerSeek" type="range" min="0" max="1" step="0.1" value="0" aria-label="Playback position in seconds" disabled><span id="viewerPlayerDuration">0:00</span></div>
+      </div>
+      <div class="player-volume"><button id="viewerPlayerMute" type="button" class="btn player-icon" aria-label="Mute" aria-pressed="false">🔊</button><input id="viewerPlayerVolume" type="range" min="0" max="1" step="0.01" value="0.75" aria-label="Volume"><span id="viewerPlayerVolumeValue">75%</span></div>
+    </footer>
   </div>
 </dialog>
 <dialog id="moveDialog" aria-labelledby="moveTitle" style="width:min(820px,94vw)">
@@ -2260,6 +2321,7 @@ function initMusicFilters(){
   for(const id of [...Object.values(musicFacetIds),'musicLength'])el(id).onchange=changed;
   el('musicSort').onchange=()=>{rememberMusicSort();changed()};
   el('musicSortDirection').onclick=()=>{musicSortDirection*=-1;rememberMusicSort();changed()};
+  el('musicSelectAll').onclick=selectAllMusicResults;
   el('musicFilterReset').onclick=()=>{resetMusicFacets();el('query').value='';el('kind').value='';el('folder').value='';changed()};
   updateMusicFilterStatus();
 }
@@ -2361,7 +2423,7 @@ function remapMusicPaths(paths,moves){return [...new Set(paths.map(p=>moves.get(
 
 /* END MUSIC PLAYER LOGIC */
 let playerPath=null,playerQueue=[],playerURL=null,playerRequest=0,playerLoading=false,playerWantsPlay=false,playerSeekActive=false;
-let lastPlayerVolume=.75,playerPreviewPath=null;
+let lastPlayerVolume=.75,playerPreviewPath=null,playerSelectionKey=null;
 let playerRepeat='off',playerShuffle=false,playerOriginalOrder=[],playerHistory=[],musicCollectionsWritable=false,musicHistoryRequest=-1,queuePage=0,historyPage=0,queuePanel='queue',queueSelectedPath=null,historySelectedEntry=null;
 const playerAudio=el('bigVideo');
 const playerVolumeKey='freedom-music-volume:'+GALLERY_URL;
@@ -2385,32 +2447,48 @@ function updatePlayerTrack(){
 }
 function updatePlayerControls(){
   const active=!!playerPath,playing=active&&(playerLoading?playerWantsPlay:!playerAudio.paused&&!playerAudio.ended);
-  const preview=!!playerPreviewPath,shown=byPath.get(playerPath);
-  const playLabel=preview?'Play selected track':playing?'Pause':'Play';
-  el('playerPlay').textContent=!preview&&playing?'':'▶';el('playerPlay').setAttribute('aria-label',playLabel);el('playerPlay').title=playLabel;
-  el('playerPlay').disabled=!preview&&!active&&!playerQueue.some(playerEligible)&&!filtered.some(x=>playerEligible(x.path));
+  const preview=!!playerPreviewPath,shown=byPath.get(playerPath),pending=selectionPlaybackPending(selectedPlaybackPaths());
+  const playLabel=preview||pending?'Play selected tracks':playing?'Pause':'Play';
+  el('playerPlay').textContent=playLabel==='Pause'?'':'▶';el('playerPlay').setAttribute('aria-label',playLabel);el('playerPlay').title=playLabel;
+  el('playerPlay').disabled=!pending&&!preview&&!active&&!playerQueue.some(playerEligible)&&!filtered.some(x=>playerEligible(x.path));
   el('playerStop').disabled=!active;el('playerCoverButton').disabled=!displayedPlayerPath();
   const now=el('playerNowPlaying');
   now.textContent=preview?(shown?(playing?'Playing: ':'Current: ')+musicTitle(shown):'Ready to play'):'';
   now.title=now.textContent;
   el('playerPrev').disabled=!active||(!nextPlayerPath(-1)&&playerAudio.currentTime<3);
   el('playerNext').disabled=!active||!nextPlayerPath(1);
-  if(el('viewer').open){const same=active&&currentPath===playerPath;el('viewerPlayTrack').textContent=same&&playing?'Ⅱ Pause track':'▶ Play track';el('viewerPlayTrack').disabled=!currentPath||!playerEligible(currentPath);el('viewerQueueTrack').disabled=el('viewerPlayNext').disabled=el('viewerPlayTrack').disabled}
+  updateViewerPlayerControls(playing,active);
   updateQueuePlayButton();
   for(const [path,card] of musicCardsByPath){card.classList.toggle('is-playing',path===playerPath);const play=card.querySelector('.play');if(play)play.textContent=path===playerPath&&playing?'Ⅱ':'▶'}
+}
+function updateViewerPlayerControls(playing,active){
+  const paths=viewerPlaybackPaths(),selected=selectedPlaybackPaths();
+  const pending=selected.length?selectionPlaybackPending(paths):currentPath!==playerPath||!playerURL&&!playerLoading||playerAudio.ended;
+  const pause=playing&&!pending;
+  const play=el('viewerPlayTrack');play.textContent=pause?'':'▶';play.setAttribute('aria-label',pause?'Pause':'Play');play.title=pause?'Pause':'Play selected tracks';
+  play.disabled=!paths.length;
+  for(const [a,b] of [['viewerPlayerPrev','playerPrev'],['viewerPlayerNext','playerNext'],['viewerPlayerStop','playerStop']])el(a).disabled=el(b).disabled;
+  const item=byPath.get(playerPath)||byPath.get(currentPath);
+  el('viewerPlayerTitle').textContent=item?musicTitle(item):'No track selected';
+  el('viewerPlayerArtist').textContent=item?([item.music?.artist,item.music?.album].filter(Boolean).join(' · ')||item.name):'';
+  el('viewerPlayNext').disabled=!paths.length||deletingMedia||librarySwitching;
+  updateViewerQueueMembershipAction();
 }
 function updatePlayerTime(){
   const d=playerAudio.duration,t=playerAudio.currentTime||0,seek=el('playerSeek');
   el('playerElapsed').textContent=playerTime(t);el('playerDuration').textContent=playerTime(d);
   seek.disabled=!(Number.isFinite(d)&&d>0&&playerPath);
   seek.max=seek.disabled?1:d;if(!playerSeekActive)seek.value=seek.disabled?0:Math.min(t,d);
+  const mirror=el('viewerPlayerSeek');mirror.disabled=seek.disabled;mirror.max=seek.max;mirror.value=seek.value;
+  el('viewerPlayerElapsed').textContent=el('playerElapsed').textContent;el('viewerPlayerDuration').textContent=el('playerDuration').textContent;
+  el('viewerPlayerPrev').disabled=!playerPath||(!nextPlayerPath(-1)&&t<3);
 }
 function releasePlayerSource(){
   playerAudio.pause();playerAudio.removeAttribute('src');playerAudio.load();
   if(playerURL)URL.revokeObjectURL(playerURL);playerURL=null;
 }
 function stopMusic(clear=true){
-  playerPreviewPath=null;++playerRequest;playerLoading=false;playerWantsPlay=false;playerSeekActive=false;releasePlayerSource();
+  playerSelectionKey=null;playerPreviewPath=null;++playerRequest;playerLoading=false;playerWantsPlay=false;playerSeekActive=false;releasePlayerSource();
   if(clear){playerPath=null;playerQueue=[];resetQueueOrder()}
   queueChanged();
   updatePlayerTrack();updatePlayerTime();
@@ -2433,6 +2511,7 @@ function dismissTrackPreview(){
 }
 async function startTrack(path,newQueue=true,keepPreview=false){
   if(!playerEligible(path)||deletingMedia||librarySwitching)return;
+  if(newQueue)playerSelectionKey=null;
   if(!keepPreview||playerPreviewPath===path)playerPreviewPath=null;
   if(path===playerPath&&(playerURL||playerLoading)){
     updatePlayerTrack();
@@ -2459,20 +2538,50 @@ async function startTrack(path,newQueue=true,keepPreview=false){
   }catch(e){if(req===playerRequest){playerLoading=false;playerWantsPlay=false;toast('Could not open track: '+e.message)}}
   if(req===playerRequest)updatePlayerControls();
 }
-function toggleMusic(){
-  if(playerPreviewPath&&playerEligible(playerPreviewPath)){
-    const path=playerPreviewPath;
-    const hasQueue=playerQueue.some(playerEligible);
-    if(hasQueue&&!playerQueue.includes(path)){
-      playerQueue=queueInsert(playerQueue,[path],playerPath,true,playerEligible);resetQueueOrder();
-    }
-    void startTrack(path,!hasQueue);return;
+function selectedPlaybackPaths(){
+  return filtered.filter(item=>selectedPaths.has(item.path)&&playerEligible(item.path)).map(item=>item.path);
+}
+function selectionPlaybackKey(paths){return JSON.stringify(paths)}
+function selectionPlaybackPending(paths){
+  return paths.length>0&&(playerSelectionKey!==selectionPlaybackKey(paths)||!playerPath||!playerURL&&!playerLoading||playerAudio.ended);
+}
+function startSelectedPlayback(paths){
+  if(!paths.length||deletingMedia||librarySwitching)return;
+  // A new explicit selection is a new finite queue, not an append or filtered-results snapshot.
+  playerRepeat='off';
+  setPlayerQueue(paths);
+  playerSelectionKey=selectionPlaybackKey(paths);
+  const first=paths[0];
+  if(first===playerPath&&playerURL&&!playerLoading)playerAudio.currentTime=0;
+  void startTrack(first,false);
+}
+function viewerPlaybackPaths(){
+  const selected=selectedPlaybackPaths();
+  return selected.length?selected:currentPath&&playerEligible(currentPath)?[currentPath]:[];
+}
+function toggleViewerPlayback(){
+  const paths=viewerPlaybackPaths();
+  if(!paths.length)return;
+  if(selectedPlaybackPaths().length){
+    if(selectionPlaybackPending(paths)){startSelectedPlayback(paths);return}
+  }else if(currentPath!==playerPath||!playerURL&&!playerLoading||playerAudio.ended){
+    startSelectedPlayback(paths);return;
   }
+  toggleActualPlayback();
+}
+function toggleActualPlayback(){
   if(playerLoading){playerWantsPlay=!playerWantsPlay;updatePlayerControls();return}
-  if(!playerPath){const queued=playerQueue.find(playerEligible);if(queued)void startTrack(queued,false);else{const first=filtered.find(x=>playerEligible(x.path));if(first)void startTrack(first.path)}return}
-  if(!playerURL){void startTrack(playerPath,!playerQueue.some(playerEligible));return}
+  if(!playerPath)return;
+  if(!playerURL){void startTrack(playerPath,false);return}
   if(playerAudio.paused||playerAudio.ended){if(playerAudio.ended)playerAudio.currentTime=0;void resumePlayer()}
   else {playerAudio.pause();playerWantsPlay=false;updatePlayerControls()}
+}
+function toggleMusic(){
+  const paths=selectedPlaybackPaths();
+  if(selectionPlaybackPending(paths)){startSelectedPlayback(paths);return}
+  if(playerPreviewPath&&playerEligible(playerPreviewPath)){startSelectedPlayback([playerPreviewPath]);return}
+  if(!playerPath){const queued=playerQueue.find(playerEligible);if(queued)void startTrack(queued,false);else{const first=filtered.find(x=>playerEligible(x.path));if(first)void startTrack(first.path)}return}
+  toggleActualPlayback();
 }
 function stepMusic(step){
   if(!playerPath)return;
@@ -2490,6 +2599,8 @@ function applyPlayerVolume(){
   const v=playerAudio.volume,muted=playerAudio.muted;
   el('playerVolume').value=v;el('playerVolumeValue').textContent=Math.round(v*100)+'%';
   el('playerMute').textContent=muted||v===0?'🔇':'🔊';el('playerMute').setAttribute('aria-pressed',String(muted));el('playerMute').setAttribute('aria-label',muted?'Unmute':'Mute');
+  el('viewerPlayerVolume').value=v;el('viewerPlayerVolumeValue').textContent=el('playerVolumeValue').textContent;
+  const mirror=el('viewerPlayerMute');mirror.textContent=el('playerMute').textContent;mirror.setAttribute('aria-pressed',String(muted));mirror.setAttribute('aria-label',muted?'Unmute':'Mute');
 }
 function persistPlayerVolume(){try{localStorage.setItem(playerVolumeKey,String(playerAudio.volume))}catch(_){}}
 function initMusicPlayer(){
@@ -2499,11 +2610,14 @@ function initMusicPlayer(){
   el('playerPlay').onclick=toggleMusic;el('playerStop').onclick=()=>stopMusic(false);
   el('playerPrev').onclick=()=>stepMusic(-1);el('playerNext').onclick=()=>stepMusic(1);
   el('playerCoverButton').onclick=()=>{const path=displayedPlayerPath();if(path)void openViewer(path)};
-  el('viewerPlayTrack').onclick=()=>{if(currentPath===playerPath){dismissTrackPreview();toggleMusic()}else if(currentPath)void startTrack(currentPath)};
+  el('viewerPlayTrack').onclick=toggleViewerPlayback;
+  el('viewerPlayerPrev').onclick=()=>stepMusic(-1);el('viewerPlayerNext').onclick=()=>stepMusic(1);el('viewerPlayerStop').onclick=()=>stopMusic(false);
   const seek=el('playerSeek');
   seek.addEventListener('input',()=>{const d=playerAudio.duration;if(Number.isFinite(d)&&d>0){playerAudio.currentTime=Math.min(d,Math.max(0,+seek.value));updatePlayerTime()}});
   el('playerVolume').oninput=e=>{playerAudio.volume=+e.target.value;playerAudio.muted=false;if(playerAudio.volume>0)lastPlayerVolume=playerAudio.volume;applyPlayerVolume();persistPlayerVolume()};
   el('playerMute').onclick=()=>{if(playerAudio.volume===0){playerAudio.volume=lastPlayerVolume||.75;playerAudio.muted=false}else playerAudio.muted=!playerAudio.muted;applyPlayerVolume();persistPlayerVolume()};
+  el('viewerPlayerSeek').addEventListener('input',e=>{seek.value=e.target.value;seek.dispatchEvent(new Event('input'))});
+  el('viewerPlayerVolume').oninput=el('playerVolume').oninput;el('viewerPlayerMute').onclick=el('playerMute').onclick;
   playerAudio.addEventListener('volumechange',applyPlayerVolume);
   for(const event of ['play','pause','ended','loadedmetadata','durationchange','emptied','error'])playerAudio.addEventListener(event,()=>{updatePlayerControls();updatePlayerTime()});
   playerAudio.addEventListener('timeupdate',()=>{updatePlayerTime();el('playerPrev').disabled=!playerPath||(!nextPlayerPath(-1)&&playerAudio.currentTime<3)});
@@ -2583,7 +2697,7 @@ function recordListening(){
   void saveMusicCollections();if(el('musicQueueDialog').open&&queuePanel==='history')renderHistory();
 }
 function resetQueueOrder(){playerShuffle=false;playerOriginalOrder=[]}
-function setPlayerQueue(paths){playerQueue=[...new Set(paths)];resetQueueOrder();queuePage=0;queueChanged()}
+function setPlayerQueue(paths){playerSelectionKey=null;playerQueue=[...new Set(paths)];resetQueueOrder();queuePage=0;queueChanged()}
 function currentQueueSnapshot(path){
   playerQueue=snapshotTracks(filtered,path,playerEligible);queuePage=0;
   if(playerShuffle){playerOriginalOrder=playerQueue.slice();playerQueue=shuffleUpcoming(playerQueue,path)}else playerOriginalOrder=[];
@@ -2593,11 +2707,13 @@ function nextPlayerPath(step){return nextQueueTrack(playerQueue,playerPath,step,
 function queueChanged(){
   updateQueueMembershipAction();
   el('playerQueueButton').textContent='Queue ('+playerQueue.filter(playerEligible).length+')';
+  el('viewerQueueButton').textContent=el('playerQueueButton').textContent;
   el('playerShuffle').setAttribute('aria-pressed',String(playerShuffle));
   el('playerRepeat').setAttribute('aria-pressed',String(playerRepeat!=='off'));
   el('playerRepeat').textContent=playerRepeat==='one'?'↻1':'↻';
   const repeatLabel='Repeat '+(playerRepeat==='all'?'queue':playerRepeat==='one'?'one track':'off');
   el('playerRepeat').title=repeatLabel;el('playerRepeat').setAttribute('aria-label',repeatLabel);
+  for(const [a,b] of [['viewerPlayerShuffle','playerShuffle'],['viewerPlayerRepeat','playerRepeat']]){el(a).textContent=el(b).textContent;el(a).setAttribute('aria-pressed',el(b).getAttribute('aria-pressed'));el(a).setAttribute('aria-label',el(b).getAttribute('aria-label'));el(a).title=el(b).title;}
   updatePlayerControls();
   if(el('musicQueueDialog').open)renderQueue();
 }
@@ -2642,6 +2758,18 @@ function toggleSelectedQueueMembership(){
   if(mode==='add'){addMusicQueue(selected);return}
   const removed=new Set(selected);
   playerQueue=playerQueue.filter(p=>!removed.has(p));resetQueueOrder();queueChanged();
+  queueNotice(selected.length+' track(s) removed from queue.');
+}
+function updateViewerQueueMembershipAction(){
+  const button=el('viewerQueueTrack'),{mode,selected}=queueMembershipAction(viewerPlaybackPaths(),playerQueue,playerPath,playerEligible);
+  button.disabled=!root||!selected.length||deletingMedia||scanInProgress||thumbResetting||librarySwitching;
+  button.textContent=mode==='remove'?'−':'＋';button.title=mode==='remove'?'Remove tracks from queue':'Add tracks to queue';button.setAttribute('aria-label',button.title);
+}
+function toggleViewerQueueMembership(){
+  const {mode,selected}=queueMembershipAction(viewerPlaybackPaths(),playerQueue,playerPath,playerEligible);
+  if(!root||!selected.length||deletingMedia||scanInProgress||thumbResetting||librarySwitching)return;
+  if(mode==='add'){addMusicQueue(selected);return}
+  const removed=new Set(selected);playerQueue=playerQueue.filter(p=>!removed.has(p));resetQueueOrder();queueChanged();
   queueNotice(selected.length+' track(s) removed from queue.');
 }
 // The dialog Play button controls actual playback, not the library preview.
@@ -2764,8 +2892,9 @@ function initMusicCollections(){
   const selected=()=>filtered.filter(x=>selectedPaths.has(x.path)).map(x=>x.path);
   el('bulkQueue').onclick=toggleSelectedQueueMembership;
   el('bulkPlayNext').onclick=()=>addMusicQueue(selected(),true);
-  el('viewerQueueTrack').onclick=()=>{if(currentPath)addMusicQueue([currentPath])};
-  el('viewerPlayNext').onclick=()=>{if(currentPath)addMusicQueue([currentPath],true)};
+  el('viewerQueueButton').onclick=openMusicQueue;el('viewerQueueTrack').onclick=toggleViewerQueueMembership;
+  el('viewerPlayNext').onclick=()=>addMusicQueue(viewerPlaybackPaths(),true);
+  el('viewerPlayerShuffle').onclick=toggleShuffle;el('viewerPlayerRepeat').onclick=cycleRepeat;
   el('playlistSelect').onchange=()=>{el('playlistName').value=el('playlistSelect').value;updatePlaylistButtons()};
   el('playlistName').oninput=updatePlaylistButtons;
   el('playlistPlay').onclick=()=>{
@@ -4107,10 +4236,19 @@ function updateSelectionUI(){
   const playableSelected=[...selectedPaths].filter(playerEligible).length;
   el('bulkPlayNext').disabled=!root||!playableSelected||deletingMedia||scanInProgress||thumbResetting;
   updateQueueMembershipAction();
+  el('musicSelectAll').disabled=!root||librarySwitching||deletingMedia||!filtered.some(x=>playerEligible(x.path));
+  if(playerSelectionKey!==selectionPlaybackKey(selectedPlaybackPaths()))playerSelectionKey=null;
   if(playerPreviewPath&&(!selectedPaths.has(playerPreviewPath)||!playerEligible(playerPreviewPath)))dismissTrackPreview();
-  syncViewBack();
+  updatePlayerControls();syncViewBack();
 }
-function clearSelection(){selectedPaths.clear();selectingMode=false;selectionAnchor=null;dismissTrackPreview();updateSelectionUI();}
+function selectAllMusicResults(){
+  if(!root||librarySwitching||deletingMedia)return;
+  selectedPaths=new Set(filtered.filter(item=>playerEligible(item.path)).map(item=>item.path));
+  selectionAnchor=selectedPaths.values().next().value||null;
+  if(selectionAnchor)prepareTrack(selectionAnchor);else dismissTrackPreview();
+  updateSelectionUI();
+}
+function clearSelection(){playerSelectionKey=null;selectedPaths.clear();selectingMode=false;selectionAnchor=null;dismissTrackPreview();updateSelectionUI();}
 
 function knownTags(){
   const out=new Map();

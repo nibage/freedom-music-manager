@@ -26,7 +26,7 @@ test('light detailed cards are white, hover grey, and labels black',()=>{
   assert.match(html,/body\.detailed-mode #gallery \.photo \.track-details\{color:#111\}/);
 });
 test('pause is drawn as two thick bars and remains accessible',()=>{
-  assert.match(js,/el\('playerPlay'\)\.textContent=!preview&&playing\?'':'▶';el\('playerPlay'\)\.setAttribute\('aria-label',playLabel\)/);
+  assert.match(js,/el\('playerPlay'\)\.textContent=playLabel==='Pause'\?'':'▶';el\('playerPlay'\)\.setAttribute\('aria-label',playLabel\)/);
   assert.match(html,/#playerPlay\[aria-label="Pause"\]::before\{[\s\S]*?currentColor 0 5px,transparent 5px 10px,currentColor 10px 15px/);
   assert.doesNotThrow(()=>new Function(js));
 });

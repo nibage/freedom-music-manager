@@ -119,6 +119,8 @@ try {
   await card.locator('.meta').click();
   await page.waitForFunction(()=>playerPreviewPath?.includes('First Light')&&selectedPaths.size===1);
   await page.locator('#playerCoverButton').click();
+  await page.locator('#viewerPlayer').waitFor({state:'visible'});
+  await page.locator('#viewerQueueButton').waitFor({state:'visible'});
   await page.waitForFunction(()=>document.getElementById('viewer').open&&currentPath?.includes('First Light')&&selectedPaths.size===1&&!playerPath);
   await page.evaluate(()=>closeViewer());
   if(await page.locator('#gallery').evaluate(e=>e.getBoundingClientRect().top)!==initialTop)throw Error('Selecting a track moved the results grid');
@@ -130,6 +132,7 @@ try {
   await card.locator('.meta').click();
   await page.waitForFunction(()=>selectedPaths.size===1&&playerPreviewPath?.includes('First Light')&&playerAudio.paused);
   await page.locator('#playerPlay').click();
+  await page.waitForFunction(()=>playerQueue.length===1&&playerQueue[0]?.includes('First Light'));
   await page.waitForFunction(() => playerPath?.includes('First Light') && !playerAudio.paused && playerAudio.currentTime > 0, null,{timeout:15000});
   const original=await page.evaluate(()=>({path:playerPath,url:playerURL,request:playerRequest,time:playerAudio.currentTime,queue:playerQueue.slice()}));
   await other.locator('.meta').click();
