@@ -1165,10 +1165,15 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
 @media(max-width:1799px){
   .top-right .recent-chooser{width:180px;min-width:115px;max-width:180px;flex:0 1 180px}
 }
-/* Show the selected folder basename on the native select; keep full paths in its menu. */
-#folderControl{position:relative;padding:0!important;min-width:0}
-#folderControl #folder{display:block;width:100%;height:100%;min-width:0;min-height:0;max-width:none;padding:8px 30px 8px 10px;font-size:13px;border-radius:8px;color:var(--text);background:var(--control)}
-#folderLeaf{position:absolute;inset:1px 28px 1px 10px;display:block;line-height:36px;pointer-events:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);background:var(--control);font-size:13px}
+/* A single painted folder control, with the native select as its invisible hit target. */
+#folderControl{position:relative;padding:0!important;box-sizing:border-box;min-width:0;border:1px solid var(--control-border);border-radius:8px;background:var(--control);color:var(--text);overflow:hidden}
+#folderControl:focus-within{border-color:var(--accent);outline:1px solid var(--accent);outline-offset:-2px}
+#folderControl #folder{position:absolute;inset:0;display:block;width:100%;height:100%;min-width:0;min-height:0;max-width:none;margin:0;padding:0;opacity:0;z-index:1;cursor:pointer}
+#folderLeaf{position:absolute;inset:0 28px 0 10px;display:flex;align-items:center;pointer-events:none;overflow:hidden;white-space:nowrap;color:var(--text);font-size:13px}
+#folderLeafText{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#folderControl::after{content:"";position:absolute;right:11px;top:50%;width:7px;height:7px;border-right:1.5px solid var(--text);border-bottom:1.5px solid var(--text);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+#folderControl:has(#folder:disabled){opacity:.5}
+#folderControl:has(#folder:disabled) #folder{cursor:default}
 .top-left{display:grid;grid-template-columns:max-content minmax(0,1fr);grid-template-rows:auto auto;column-gap:8px;row-gap:2px;align-content:center;align-items:center}
 .top-left h1{grid-column:1;grid-row:1}
 .top-left #results{grid-column:2;grid-row:1}
@@ -1190,7 +1195,7 @@ html[data-theme="light"] #headerRelativePath{color:#f0e4e7}
   </div>
   <div class="filters">
     <input id="query" type="search" placeholder="Search… (/)" title="Search title, artist, album, genre, filename or tag; press / to focus" aria-label="Search media">
-    <div id="folderControl"><select id="folder" aria-label="Filter by folder"><option value="">All folders</option></select><span id="folderLeaf" aria-hidden="true">All folders</span></div>
+    <div id="folderControl"><select id="folder" aria-label="Filter by folder"><option value="">All folders</option></select><span id="folderLeaf" aria-hidden="true"><span id="folderLeafText">All folders</span></span></div>
     <label class="folder-lock" id="folderLockLabel" title="Lock folder: keep the selected folder while browsing collections and tags. In OR mode, folder is temporarily ignored but remembered.">
       <input id="folderLock" type="checkbox" checked aria-label="Lock selected folder" />
       <span class="folder-lock-icons" aria-hidden="true"><span id="folderLockIcon">🔒</span><span>📁</span></span>
@@ -2967,31 +2972,48 @@ function removeSelectedQueuePaths(){
 function initHistorySelection(){
   const dialog=el('musicQueueDialog');
   for(const isHistory of [true,false]){
-  const host=el(isHistory?'historyList':'queueList');let drag=null,suppressClick=false;
-  const entryOf=row=>isHistory?row?.historyEntry:row?.queuePath;
-  const currentSelection=()=>isHistory?historySelectedEntries:queueSelectedPaths;
-  const entries=()=>isHistory?playerHistory:playerQueue;
-  host.addEventListener('pointerdown',e=>{
-    if(e.button!==0||!(e.ctrlKey||e.metaKey))return;
-    if(e.target.closest('button'))return;
-    const entry=entryOf(e.target.closest('.queue-row'));if(!entry)return;
-    drag={id:e.pointerId,x:e.clientX,y:e.clientY,entry,initial:new Set(currentSelection()),active:false};suppressClick=false;
-  });
-  host.addEventListener('pointermove',e=>{
-    if(!drag||drag.id!==e.pointerId)return;
-    if(!drag.active&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<5)return;
-    if(!drag.active){drag.active=true;host.setPointerCapture(e.pointerId)}
-    e.preventDefault();
-    const row=document.elementFromPoint(e.clientX,e.clientY)?.closest('.queue-row');
-    if(!row||!host.contains(row))return;
-    const entry=entryOf(row);if(!entry)return;
-    const next=new Set([...drag.initial,...historyRange(entries(),drag.entry,entry)]);
-    if(isHistory){historySelectedEntries=next;historySelectionAnchor=drag.entry;updateHistorySelectionUI()}
-    else{queueSelectedPaths=next;queueSelectionAnchor=drag.entry;updateQueueRowSelection()}
-  });
-  const finish=e=>{if(!drag||drag.id!==e.pointerId)return;suppressClick=drag.active;drag=null;if(host.hasPointerCapture(e.pointerId))host.releasePointerCapture(e.pointerId);if(suppressClick)setTimeout(()=>{suppressClick=false},0)};
-  host.addEventListener('pointerup',finish);host.addEventListener('pointercancel',finish);host.addEventListener('lostpointercapture',finish);
-  host.addEventListener('click',e=>{if(suppressClick){e.preventDefault();e.stopImmediatePropagation();suppressClick=false}},true);
+    const host=el(isHistory?'historyList':'queueList');let drag=null,suppressClick=false,frame=0;
+    const entryOf=row=>isHistory?row?.historyEntry:row?.queuePath;
+    const currentSelection=()=>isHistory?historySelectedEntries:queueSelectedPaths;
+    const entries=()=>isHistory?playerHistory:playerQueue;
+    function applyRange(){
+      if(!drag?.active)return;
+      const bounds=host.getBoundingClientRect();
+      const y=Math.max(bounds.top+2,Math.min(bounds.bottom-2,drag.y));
+      // Use the row's vertical extent, so dragging over labels or outside the list horizontally works.
+      const rows=[...host.querySelectorAll('.queue-row')];
+      const row=rows.find(r=>{const b=r.getBoundingClientRect();return b.top<=y&&b.bottom>=y});
+      const entry=entryOf(row);if(!entry)return;
+      const next=new Set([...drag.initial,...historyRange(entries(),drag.entry,entry)]);
+      if(isHistory){historySelectedEntries=next;historySelectionAnchor=drag.entry;updateHistorySelectionUI()}
+      else{queueSelectedPaths=next;queueSelectionAnchor=drag.entry;updateQueueRowSelection()}
+    }
+    function scrollFrame(){
+      frame=0;if(!drag?.active)return;
+      const b=host.getBoundingClientRect(),edge=28;
+      const dy=drag.y<b.top+edge?-Math.min(18,Math.max(1,(b.top+edge-drag.y)/3)):drag.y>b.bottom-edge?Math.min(18,Math.max(1,(drag.y-b.bottom+edge)/3)):0;
+      if(dy){host.scrollTop+=dy;applyRange();frame=requestAnimationFrame(scrollFrame)}
+    }
+    host.addEventListener('pointerdown',e=>{
+      if(e.button!==0||e.pointerType==='touch'||e.target.closest('button,input,select'))return;
+      const entry=entryOf(e.target.closest('.queue-row'));if(!entry)return;
+      drag={id:e.pointerId,x:e.clientX,startY:e.clientY,y:e.clientY,entry,initial:e.ctrlKey||e.metaKey?new Set(currentSelection()):new Set(),active:false};suppressClick=false;
+    });
+    document.addEventListener('pointermove',e=>{
+      if(!drag||drag.id!==e.pointerId)return;
+      if(!drag.active&&Math.hypot(e.clientX-drag.x,e.clientY-drag.startY)<5)return;
+      if(!drag.active){drag.active=true;try{host.setPointerCapture(e.pointerId)}catch(_){}}
+      drag.y=e.clientY;e.preventDefault();applyRange();
+      if(!frame)frame=requestAnimationFrame(scrollFrame);
+    },{passive:false});
+    const finish=e=>{
+      if(!drag||drag.id!==e.pointerId)return;
+      suppressClick=drag.active;drag=null;if(frame){cancelAnimationFrame(frame);frame=0}
+      if(host.hasPointerCapture(e.pointerId))host.releasePointerCapture(e.pointerId);
+      if(suppressClick)setTimeout(()=>{suppressClick=false},0);
+    };
+    document.addEventListener('pointerup',finish);document.addEventListener('pointercancel',finish);host.addEventListener('lostpointercapture',finish);
+    host.addEventListener('click',e=>{if(suppressClick){e.preventDefault();e.stopImmediatePropagation();suppressClick=false}},true);
   }
   dialog.addEventListener('keydown',e=>{
     if(!(e.ctrlKey||e.metaKey)||e.key.toLowerCase()!=='a'||e.target.closest('input,textarea,select,[contenteditable=true]'))return;
@@ -3634,7 +3656,7 @@ async function removeCollection(){
 function renderAlbumSelector(){const s=el('albumSelect'),old=s.value;s.replaceChildren(new Option('Choose album',''));for(const name of [...albums.keys()].sort((a,b)=>a.localeCompare(b,'cs')))s.add(new Option(name,name));if(albums.has(old))s.value=old;updateAlbumButton()}
 function updateFolderDisplay(){
   const select=el('folder'),path=select.value;
-  el('folderLeaf').textContent=path?path.split('/').at(-1):'All folders';
+  el('folderLeafText').textContent=path?path.split('/').at(-1):'All folders';
   select.title=path||'All folders';
   const label=el('headerRelativePath');label.textContent=path||'All folders';label.title=path||'All folders';
 }
@@ -3715,7 +3737,7 @@ function renderCards(){
     };
     meta.onclick=selectFromCaption;
     meta.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){selectFromCaption(e)}};
-    card.append(media,heart,meta);updateMusicCaption(card,item);placeCard(card);musicCardsByPath.set(item.path,card);observer.observe(thumbnail);
+    card.append(media,heart,meta);updateMusicCaption(card,item);placeCard(card);musicCardsByPath.set(item.path,card);if(preserve&&thumbs.has(item.path))thumbnail.src=thumbs.get(item.path);else observer.observe(thumbnail);
   }
   el('results').textContent=(activeView.type==='trash'?'Trash · ':(activeView.type==='tags'?'Tags '+selectedTagKeys.size+' · ':''))+filtered.length.toLocaleString('cs-CZ')+' results · showing '+slice.length.toLocaleString('cs-CZ')+' / '+images.length.toLocaleString('cs-CZ')+' files';
   // Always show the action in Trash, even if the search currently filters its cards.
@@ -4945,7 +4967,7 @@ el('collectionOperator').onclick=()=>{
   }
   setCollectionView();
   try{localStorage.setItem(COLLECTION_OPERATOR_KEY,collectionOperator)}catch(_){}
-  syncFilterControls();clearSelection();visibleCount=80;renderAlbumList();renderTagList();filterAndRender(false,'filter');
+  syncFilterControls();clearSelection();filterAndRender(false,'filter',true);
 };
 el('folderLock').onchange=e=>{
   folderLocked=e.target.checked;

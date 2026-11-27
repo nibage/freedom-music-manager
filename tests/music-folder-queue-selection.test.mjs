@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 const html=readFileSync(new URL('../__music/index.html',import.meta.url),'utf8');
 const js=html.match(/<script>([\s\S]*?)<\/script>/)[1];
 test('closed folder label shows basename, header and native menu retain full relative path',()=>{
-  const nodes={folder:{value:'Music/Artist/Album'},folderLeaf:{},headerRelativePath:{}};
+  const nodes={folder:{value:'Music/Artist/Album'},folderLeafText:{},headerRelativePath:{}};
   const source=js.slice(js.indexOf('function updateFolderDisplay(){'),js.indexOf('function filterAndRender(metadataRefresh'));
   const update=new Function('nodes','const el=id=>nodes[id];'+source+';return updateFolderDisplay')(nodes);
-  update();assert.equal(nodes.folderLeaf.textContent,'Album');assert.equal(nodes.headerRelativePath.textContent,'Music/Artist/Album');assert.equal(nodes.folder.title,'Music/Artist/Album');
-  nodes.folder.value='';update();assert.equal(nodes.folderLeaf.textContent,'All folders');
+  update();assert.equal(nodes.folderLeafText.textContent,'Album');assert.equal(nodes.headerRelativePath.textContent,'Music/Artist/Album');assert.equal(nodes.folder.title,'Music/Artist/Album');
+  nodes.folder.value='';update();assert.equal(nodes.folderLeafText.textContent,'All folders');
   assert.match(js,/select\.add\(new Option\(folder,folder\)\)/);
   assert.match(html,/#folderLeaf\{[^}]*pointer-events:none/);
 });

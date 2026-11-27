@@ -225,6 +225,13 @@ try {
   const queueListHeight=(await page.locator('#queueList').boundingBox()).height;
   await page.locator('#queueList .queue-row').first().locator('.queue-track-label').click();
   if(await page.locator('#queueList .queue-row.is-selected').count()!==1)throw Error('Queue row must be selectable');
+  const queueRows=page.locator('#queueList .queue-row');
+  if(await queueRows.count()>=3){
+    const first=await queueRows.nth(0).boundingBox(),third=await queueRows.nth(2).boundingBox();
+    await page.mouse.move(first.x+45,first.y+first.height/2);await page.mouse.down();
+    await page.mouse.move(third.x+45,third.y+third.height/2,{steps:8});await page.mouse.up();
+    await page.waitForFunction(()=>queueSelectedPaths.size===3);
+  }
   await page.keyboard.press('Control+a');
   await page.waitForFunction(()=>queueSelectedPaths.size===playerQueue.length&&!document.getElementById('queueRemoveSelected').hidden);
   await page.locator('#queueRemoveSelected').click();
@@ -248,11 +255,9 @@ try {
   const rows=page.locator('#historyList .queue-row');
   if(await rows.count()>=2){
     const first=await rows.nth(0).boundingBox(),second=await rows.nth(1).boundingBox();
-    await page.keyboard.down('Control');
     await page.mouse.move(first.x+15,first.y+first.height/2);await page.mouse.down();
     await page.mouse.move(second.x+15,second.y+second.height/2,{steps:5});await page.mouse.up();
-    await page.keyboard.up('Control');
-    await page.waitForFunction(()=>historySelectedEntries.size>=2);
+    await page.waitForFunction(()=>historySelectedEntries.size===2);
   }
   await page.keyboard.press('Control+a');
   await page.waitForFunction(()=>historySelectedEntries.size===playerHistory.length);
