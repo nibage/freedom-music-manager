@@ -1,0 +1,36 @@
+name: Remove merged music-migration branch
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/cleanup-music-migration.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  cleanup:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Delete only the verified merged development branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED: 96336651eecd382c556cecd69d5242dd033d786b
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          actual="$(git ls-remote origin refs/heads/music-migration | cut -f1)"
+          if [[ -z "$actual" ]]; then echo "Branch already absent."; exit 0; fi
+          [[ "$actual" == "$EXPECTED" ]] || { echo "Branch changed; refusing deletion."; exit 1; }
+          git merge-base --is-ancestor "$EXPECTED" origin/main
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/pulls/1" --jq .merged)" == true ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=nibage:music-migration" --jq length)" == 0 ]]
+          git push --force-with-lease="refs/heads/music-migration:$EXPECTED" origin :refs/heads/music-migration
+          [[ -z "$(git ls-remote origin refs/heads/music-migration)" ]]
