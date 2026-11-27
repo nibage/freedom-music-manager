@@ -27,7 +27,7 @@ The demo ZIP contains nine synthetic tracks in WAV, MP3, FLAC, Ogg Vorbis, M4A a
 - **Classic View**: square album/track cover cards. **Detailed View**: a list with title, artist, album, genre, year, disc, track, format, duration and relative path when available.
 - Search and combine artist, album, genre, year, duration, format, folder, tags, favorites and music collection filters. Sort ascending/descending; default order respects a single saved collection.
 - Click artwork or title to select and prepare a track; press Play to start it; click ⓘ for track details and membership. The persistent player continues while browsing. Space toggles play/pause when not editing.
-- Queue, play next, reorder, shuffle, repeat one/all, volume and seek. Save a queue as a named music collection; play, load or append a collection from the queue dialog.
+- Queue, play next, reorder, shuffle, repeat one/all, volume and seek. The queue dialog has a History / Queue toggle; listening history replaces the queue list, uses the same pagination controls and has a confirmed Clear history action at the right of that row. Save a queue as a named music collection; play, load or append a collection from the queue dialog.
 - **Music Collections** are ordered virtual groups (also playlists); **Album** is the actual audio tag. Tracks may belong to multiple collections and tags without duplication.
 - Reversible in-app Trash; permanent deletion requires explicit confirmation and does not use the operating system's Recycle Bin.
 - Local listening history (up to 200 entries), metadata cache validated against file size and modification time, lazy cover previews, themes, and one-step undo for supported collection/tag/favorite edits.

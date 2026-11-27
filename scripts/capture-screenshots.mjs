@@ -143,6 +143,13 @@ try {
   await page.locator('#playlistSave').click();
   await page.waitForFunction(() => albums.get('CI demo collection')?.size === 9);
   await page.waitForFunction(() => !pendingSaves);
+  await page.locator('#queueHistoryToggle').click();
+  await page.waitForFunction(()=>!document.getElementById('historyList').hidden&&document.getElementById('queueList').hidden&&!document.getElementById('historyClear').hidden);
+  if(await page.locator('#queueHistoryToggle').textContent()!=='Queue')throw Error('Missing return to queue');
+  if(await page.locator('#historyList .queue-row').count()<1)throw Error('Listening history not displayed');
+  await page.locator('#queueHistoryToggle').click();
+  await page.waitForFunction(()=>!document.getElementById('queueList').hidden&&document.getElementById('historyList').hidden&&document.getElementById('historyClear').hidden);
+  console.log('PASS: history replaces queue list in the same dialog');
   await page.locator('#queueClose').click();
   await page.evaluate(async () => {await flushMusicCache();await saveQueue;});
   // Re-open the same mock library: metadata cache and collection order persist.
