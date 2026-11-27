@@ -40,6 +40,9 @@ Click a track (cover or caption) to select it exclusively and prepare it in the 
 
 ## How filters combine
 
+Creating a new music collection or tag from the sidebar automatically assigns all currently selected tracks. With no selection, it is created empty. Creating one from track details assigns the open track only. Original files are not copied; Ctrl+Z can undo creation and membership together.
+
+
 The sidebar OFF / OR / AND button affects only selected Music Collections, custom tags, Favorites and Trash. OFF selects one criterion; OR matches any selected criterion; AND matches every selected criterion. Artist, actual Album, Genre, Year, Duration, search and Format always narrow the resulting tracks using AND. A locked folder always narrows results; an unlocked folder is ignored while any sidebar criterion is selected. Reset filters clears metadata, search, format and folder, not the sidebar selection or sort order. Metadata options include counts within the current scope.
 
 ## Formats
