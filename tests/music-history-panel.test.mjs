@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 const html=readFileSync(new URL('../__music/index.html',import.meta.url),'utf8');
 const js=html.match(/<script>([\s\S]*?)<\/script>/)[1];
 const slice=(a,b)=>{const x=js.indexOf(a),y=js.indexOf(b,x);assert.ok(x>=0&&y>x);return js.slice(x,y)};
-const source=slice('function queueMembershipAction(','function renderQueuePagination(')+slice('function renderQueuePagination(','function renderPlaylistOptions(){')+slice('function renderHistory(){','function initMusicCollections(){');
+const source=slice('function queueMembershipAction(','function renderQueuePagination(')+slice('function renderQueuePagination(','function queueCollectionOptions(')+slice('function renderHistory(){','function initMusicCollections(){');
 function harness(){
   class Node{constructor(){this.children=[];this.className='';this.hidden=false;this.disabled=false;this.textContent='';this.attrs={};}replaceChildren(){this.children=[]}append(...xs){this.children.push(...xs);for(const x of xs)if(x&&typeof x==='object')x.parentElement=this}setAttribute(k,v){this.attrs[k]=v}showModal(){this.open=true}}
   const nodes=new Map(),el=id=>{if(!nodes.has(id))nodes.set(id,new Node());return nodes.get(id)};
@@ -18,10 +18,10 @@ function harness(){
 test('history replaces only list, returns to queue with its original page',()=>{
   const {api,el}=harness();api.openMusicQueue();api.next();
   assert.equal(el('queuePageLabel').textContent,'2 / 2');assert.equal(el('historyList').hidden,true);
-  api.panel('history');assert.equal(el('queueList').hidden,true);assert.equal(el('historyList').hidden,false);assert.equal(el('historyClear').hidden,false);assert.equal(el('queueClear').hidden,true);assert.equal(el('queueAddResults').hidden,true);assert.equal(el('queueAppendResults').hidden,true);
+  api.panel('history');assert.equal(el('queueList').hidden,true);assert.equal(el('historyList').hidden,false);assert.equal(el('historyClear').hidden,false);assert.equal(el('queueClear').hidden,true);assert.equal(el('queueAddResults').hidden,true);assert.equal(el('queueAppendResults').hidden,true);assert.equal(el('queueCollectionPanel').hidden,true);
   assert.equal(el('queueHistoryToggle').textContent,'Queue');assert.equal(el('queuePageLabel').textContent,'1 / 3');
   api.next();assert.equal(el('queuePageLabel').textContent,'2 / 3');assert.equal(el('historyList').children[0].children[0],'h3');
-  api.panel('queue');assert.equal(el('queuePageLabel').textContent,'2 / 2');assert.equal(el('historyClear').hidden,true);assert.equal(el('queueHistoryToggle').textContent,'History');
+  api.panel('queue');assert.equal(el('queuePageLabel').textContent,'2 / 2');assert.equal(el('historyClear').hidden,true);assert.equal(el('queueCollectionPanel').hidden,false);assert.equal(el('queueHistoryToggle').textContent,'History');
 });
 test('history pagination clamps last page and clears without modifying queue',()=>{
   const {api,el}=harness();api.panel('history');api.next();api.next();api.next();

@@ -1149,6 +1149,15 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
   #viewerPlayer{grid-template-columns:max-content minmax(0,1fr);grid-row:2}
   #viewerPlayer .player-volume{grid-column:1/-1;grid-row:2}
 }
+/* Compact two-row collection controls; history gets the entire remaining list area. */
+#queueCollectionPanel{display:flex;flex-direction:column;gap:7px;min-width:0}
+#queueCollectionPanel[hidden]{display:none!important}
+#queueCollectionControls{display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:wrap}
+#queueCollectionControls>.collection-switch,#queueCollectionControls>.collection-actions{flex:0 0 auto}
+#queueCollectionControls .collection-tab,#queueCollectionControls .collection-action{min-height:32px;font-size:12px;padding:4px 7px;white-space:nowrap}
+#queueCollectionControls .queue-collection-search{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:7px;flex:1 1 190px;min-width:0}
+#queueCollectionQuery,#playlistSelect{width:100%;min-width:0;max-width:100%;box-sizing:border-box;min-height:32px;font-size:12px;padding:4px 7px}
+@media(max-width:540px){#queueCollectionControls .queue-collection-search{flex-basis:100%}}
 </style>
 </head>
 <body>
@@ -1291,8 +1300,14 @@ html[data-theme="light"] body.detailed-mode #gallery .photo .heart:hover{backgro
     <div id="queueList" class="queue-list" role="listbox" aria-label="Playback queue"></div>
     <div id="historyList" class="queue-list" role="listbox" aria-label="Listening history" hidden></div>
     <div class="queue-actions"><button class="btn" id="queuePagePrev" type="button">Previous page</button><span id="queuePageLabel" class="small"></span><button class="btn" id="queuePageNext" type="button">Next page</button></div>
-    <div class="queue-playlist"><select id="playlistSelect" aria-label="Music collections"><option value="">Choose collection…</option></select><button class="btn" id="playlistPlay" type="button">▶ Play collection</button><button class="btn" id="playlistLoad" type="button">Load queue</button><button class="btn" id="playlistAppend" type="button">Append</button></div>
-    <div class="queue-actions" id="queueCollectionControls"><div class="collection-switch" role="group" aria-label="Queue collection type"><button id="queueCollections" class="collection-tab active" type="button" aria-pressed="true">Collections</button><button id="queueTags" class="collection-tab" type="button" aria-pressed="false">Tags</button></div><div class="collection-actions"><button id="queueCollectionNew" class="collection-action" type="button">＋ New</button><button id="queueCollectionRemove" class="collection-action" type="button" disabled>− Remove</button></div></div>
+    <section id="queueCollectionPanel" aria-label="Queue collections and tags">
+      <div id="queueCollectionControls">
+        <div class="collection-switch" role="group" aria-label="Queue collection type"><button id="queueCollections" class="collection-tab active" type="button" aria-pressed="true">Collections</button><button id="queueTags" class="collection-tab" type="button" aria-pressed="false">Tags</button></div>
+        <div class="collection-actions"><button id="queueCollectionNew" class="collection-action" type="button">＋ New</button><button id="queueCollectionRemove" class="collection-action" type="button" disabled>− Remove</button></div>
+        <div class="queue-collection-search"><input id="queueCollectionQuery" type="search" placeholder="Search collections…" aria-label="Search collections"><select id="playlistSelect" aria-label="Matching collections"><option value="">Choose collection…</option></select></div>
+      </div>
+      <div class="queue-actions"><button class="btn" id="playlistLoad" type="button">Use collection</button><button class="btn" id="playlistAppend" type="button">Append collection</button></div>
+    </section>
     <div id="queueFeedback" aria-live="polite"></div>
   </div>
 </dialog>
@@ -2879,6 +2894,7 @@ function renderQueue(){
   const history=queuePanel==='history',toggle=el('queueHistoryToggle');
   el('queueList').hidden=history;el('historyList').hidden=!history;el('historyClear').hidden=!history;
   el('queueClear').hidden=history;el('queueAddResults').hidden=history;el('queueAppendResults').hidden=history;
+  el('queueCollectionPanel').hidden=history;
   toggle.textContent=history?'Queue':'History';toggle.setAttribute('aria-pressed',String(history));
   toggle.title=history?'Return to playback queue':'Show listening history';
   const n=playerQueue.length;
@@ -2909,23 +2925,34 @@ function queueCollectionPaths(){
   // Tags are membership, not playlists: follow the library's current default order.
   return images.filter(x=>(tags.get(x.path)||[]).some(t=>t.toLocaleLowerCase('cs')===key)).map(x=>x.path);
 }
+function queueCollectionOptions(mode,query,collections,tagGroups){
+  const needle=query.trim().toLocaleLowerCase('cs');
+  const entries=mode==='tags'?tagGroups.map(t=>({key:t.key,label:t.label,count:t.count})):
+    [...collections].sort(([a],[b])=>a.localeCompare(b)).map(([name,paths])=>({key:name,label:name,count:paths.size}));
+  return entries.filter(entry=>entry.label.toLocaleLowerCase('cs').includes(needle));
+}
 function renderPlaylistOptions(){
-  const select=el('playlistSelect'),old=select.value,isTags=queueCollectionMode==='tags';
-  select.replaceChildren(new Option(isTags?'Choose tag…':'Choose collection…',''));
-  if(isTags){for(const tag of knownTags())select.add(new Option(tag.label+' ('+tag.count+')',tag.key))}
-  else{for(const [name,paths] of [...albums].sort(([a],[b])=>a.localeCompare(b)))select.add(new Option(name+' ('+paths.size+')',name))}
-  if([...select.options].some(o=>o.value===old))select.value=old;
+  const select=el('playlistSelect'),old=select.value,isTags=queueCollectionMode==='tags',query=el('queueCollectionQuery').value;
+  const entries=queueCollectionOptions(queueCollectionMode,query,albums,isTags?knownTags():[]);
+  select.replaceChildren(new Option(entries.length?(isTags?'Choose tag…':'Choose collection…'):(isTags?'No matching tags':'No matching collections'),''));
+  for(const entry of entries)select.add(new Option(entry.label+' ('+entry.count+')',entry.key));
+  if(entries.some(entry=>entry.key===old))select.value=old;
   updatePlaylistButtons();
 }
 function updatePlaylistButtons(){
   const paths=queueCollectionPaths(),selected=paths!==null;
-  for(const id of ['playlistPlay','playlistLoad','playlistAppend'])el(id).disabled=!root||!selected;
-  el('playlistPlay').textContent=queueCollectionMode==='tags'?'▶ Play tag':'▶ Play collection';
+  const noun=queueCollectionMode==='tags'?'tag':'collection';
+  for(const id of ['playlistLoad','playlistAppend'])el(id).disabled=!root||!selected||!paths.some(playerEligible);
+  el('playlistLoad').textContent='Use '+noun;el('playlistLoad').title='Replace queue with tracks from selected '+noun;
+  el('playlistAppend').textContent='Append '+noun;el('playlistAppend').title='Append tracks from selected '+noun+' without duplicates';
   el('queueCollectionRemove').disabled=!root||!selected||deletingMedia||scanInProgress;
   el('queueCollectionNew').disabled=!root||deletingMedia||scanInProgress;
 }
 function switchQueueCollections(mode){
   queueCollectionMode=mode==='tags'?'tags':'albums';el('playlistSelect').value='';
+  const query=el('queueCollectionQuery'),noun=queueCollectionMode==='tags'?'tags':'collections';
+  query.value='';query.placeholder='Search '+noun+'…';query.setAttribute('aria-label','Search '+noun);
+  el('playlistSelect').setAttribute('aria-label','Matching '+noun);
   for(const [id,active] of [['queueCollections',queueCollectionMode==='albums'],['queueTags',queueCollectionMode==='tags']]){
     el(id).classList.toggle('active',active);el(id).setAttribute('aria-pressed',String(active));
   }
@@ -2936,7 +2963,7 @@ async function createQueueCollection(){
   if(!r||deletingMedia||scanInProgress)return;
   if(queueCollectionMode==='albums'){
     const name=await newAlbum(paths);
-    if(name&&root===r){renderPlaylistOptions();el('playlistSelect').value=name;updatePlaylistButtons()}
+    if(name&&root===r){el('queueCollectionQuery').value='';renderPlaylistOptions();el('playlistSelect').value=name;updatePlaylistButtons()}
     return;
   }
   const answer=await galleryCollectionDialog({title:'New tag',message:'Create a tag and assign it to '+paths.length+' queued tracks.',input:true,action:'Create tag'});
@@ -2946,7 +2973,7 @@ async function createQueueCollection(){
   if(knownTags().some(t=>t.key===key)){toast('Tag already exists.');return}
   recordUndo('create tag');tagCatalog.add(name);
   for(const path of paths.filter(playerEligible)){const values=tags.get(path)||[];tags.set(path,[...values,name]);captureSignature(path)}
-  await saveTags();renderTagList();renderViewerCollections();filterAndRender();renderPlaylistOptions();el('playlistSelect').value=key;updatePlaylistButtons();
+  await saveTags();renderTagList();renderViewerCollections();filterAndRender();el('queueCollectionQuery').value='';renderPlaylistOptions();el('playlistSelect').value=key;updatePlaylistButtons();
 }
 async function removeQueueCollection(){
   const r=root,key=el('playlistSelect').value;
@@ -2978,6 +3005,14 @@ function openMusicQueue(){
   const at=playerQueue.indexOf(playerPath);if(at>=0)queuePage=Math.floor(at/QUEUE_PAGE_SIZE);
   renderPlaylistOptions();renderQueue();el('musicQueueDialog').showModal();
 }
+function useQueueCollection(){
+  const paths=queueCollectionPaths()?.filter(playerEligible);
+  if(!root||!paths?.length)return;
+  // Match Use current results: replace exactly, never retain an unrelated playback anchor.
+  if(playerPath&&!paths.includes(playerPath))stopMusic();
+  clearSelection();setPlayerQueue(paths);
+  queueNotice('Queue replaced with selected '+(queueCollectionMode==='tags'?'tag':'collection')+'.');
+}
 function initMusicCollections(){
   el('playerQueueButton').onclick=openMusicQueue;
   el('queueClose').onclick=()=>el('musicQueueDialog').close();
@@ -2996,19 +3031,10 @@ function initMusicCollections(){
   el('viewerPlayNext').onclick=()=>addMusicQueue(viewerPlaybackPaths(),true);
   el('viewerPlayerShuffle').onclick=toggleShuffle;el('viewerPlayerRepeat').onclick=cycleRepeat;
   el('playlistSelect').onchange=updatePlaylistButtons;
+  el('queueCollectionQuery').oninput=renderPlaylistOptions;
   el('queueCollections').onclick=()=>switchQueueCollections('albums');el('queueTags').onclick=()=>switchQueueCollections('tags');
   el('queueCollectionNew').onclick=()=>void createQueueCollection();el('queueCollectionRemove').onclick=()=>void removeQueueCollection();
-  el('playlistPlay').onclick=()=>{
-    const paths=queueCollectionPaths()?.filter(playerEligible)||[],first=paths[0];
-    if(!first){queueNotice('No playable tracks.');return}
-    clearSelection();setPlayerQueue(paths);if(first===playerPath&&playerURL&&!playerLoading)playerAudio.currentTime=0;void startTrack(first,false);
-    queueNotice('Playing selected '+(queueCollectionMode==='tags'?'tag':'collection')+'.');
-  };
-  el('playlistLoad').onclick=()=>{
-    const paths=queueCollectionPaths()?.filter(playerEligible);if(!paths)return;
-    const ordered=playerPath&&!paths.includes(playerPath)?[playerPath,...paths]:paths.slice();
-    setPlayerQueue(ordered);queueNotice('Loaded into queue.');
-  };
+  el('playlistLoad').onclick=useQueueCollection;
   el('playlistAppend').onclick=()=>{const paths=queueCollectionPaths();if(paths)appendQueueMembership(paths)};
   el('historyClear').onclick=async()=>{
     const r=root;if(!r||!musicCollectionsWritable||!playerHistory.length)return;
