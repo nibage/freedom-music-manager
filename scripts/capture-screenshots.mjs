@@ -189,8 +189,9 @@ try {
   if(await page.locator('#musicQueueDialog').isVisible())throw Error('Membership action opened queue dialog');
   await page.locator('#playerQueueButton').click();
   await page.locator('#queueAddResults').click();
-  await page.locator('#playlistName').fill('CI demo collection');
-  await page.locator('#playlistSave').click();
+  await page.locator('#queueCollectionNew').click();
+  await page.locator('#collectionDialogInput').fill('CI demo collection');
+  await page.locator('#collectionDialogAccept').click();
   await page.waitForFunction(() => albums.get('CI demo collection')?.size === 9);
   await page.waitForFunction(() => !pendingSaves);
   const queueBounds=await page.locator('#musicQueueDialog').boundingBox();

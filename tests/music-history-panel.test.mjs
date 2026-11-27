@@ -10,7 +10,7 @@ function harness(){
   const nodes=new Map(),el=id=>{if(!nodes.has(id))nodes.set(id,new Node());return nodes.get(id)};
   const env={el,document:{createElement:()=>new Node()},queueTrackLabel:p=>p,queueButton:()=>({}),updatePlaylistButtons(){},renderPlaylistOptions(){},playerEligible:()=>true};
   const api=new Function('env','const {el,document,queueTrackLabel,queueButton,updatePlaylistButtons,renderPlaylistOptions,playerEligible}=env;'+
-    "const QUEUE_PAGE_SIZE=3;let queuePanel='queue',queuePage=0,historyPage=0,playerPath='a',playerQueue=['a','b','c','d'],playerHistory=Array.from({length:8},(_,i)=>({path:'h'+i,at:i})),musicCollectionsWritable=true,root={},filtered=[],queueSelectedPath=null,historySelectedEntry=null,playerLoading=false,playerWantsPlay=false,playerAudio={paused:true,ended:false};"+
+    "const QUEUE_PAGE_SIZE=3;let queuePanel='queue',queuePage=0,historyPage=0,playerPath='a',playerQueue=['a','b','c','d'],playerHistory=Array.from({length:8},(_,i)=>({path:'h'+i,at:i})),musicCollectionsWritable=true,root={},filtered=[],selectedPaths=new Set(),queueSelectedPath=null,historySelectedEntry=null,playerLoading=false,playerWantsPlay=false,playerAudio={paused:true,ended:false};"+
     source+";return {renderQueue,openMusicQueue,panel:p=>{queuePanel=p;renderQueue()},next:()=>{if(queuePanel==='history')historyPage++;else queuePage++;renderQueue()},clear:()=>{playerHistory=[];renderQueue()},target:queuePanelTarget,state:()=>({queuePage,historyPage,queuePanel,queue:playerQueue.slice()})};"
   )(env);
   return {api,el};
@@ -18,7 +18,7 @@ function harness(){
 test('history replaces only list, returns to queue with its original page',()=>{
   const {api,el}=harness();api.openMusicQueue();api.next();
   assert.equal(el('queuePageLabel').textContent,'2 / 2');assert.equal(el('historyList').hidden,true);
-  api.panel('history');assert.equal(el('queueList').hidden,true);assert.equal(el('historyList').hidden,false);assert.equal(el('historyClear').hidden,false);assert.equal(el('queueClear').hidden,true);assert.equal(el('queueAddResults').hidden,true);
+  api.panel('history');assert.equal(el('queueList').hidden,true);assert.equal(el('historyList').hidden,false);assert.equal(el('historyClear').hidden,false);assert.equal(el('queueClear').hidden,true);assert.equal(el('queueAddResults').hidden,true);assert.equal(el('queueAppendResults').hidden,true);
   assert.equal(el('queueHistoryToggle').textContent,'Queue');assert.equal(el('queuePageLabel').textContent,'1 / 3');
   api.next();assert.equal(el('queuePageLabel').textContent,'2 / 3');assert.equal(el('historyList').children[0].children[0],'h3');
   api.panel('queue');assert.equal(el('queuePageLabel').textContent,'2 / 2');assert.equal(el('historyClear').hidden,true);assert.equal(el('queueHistoryToggle').textContent,'History');
@@ -33,10 +33,10 @@ test('history pagination clamps last page and clears without modifying queue',()
 test('history toggle and clear are on existing action rows with no details element',()=>{
   const dialog=html.slice(html.indexOf('<dialog id="musicQueueDialog"'),html.indexOf('<dialog id="viewer"'));
   assert.match(dialog,/id="queueCount"[^>]*><\/span><button[^>]*id="queueHistoryToggle"/);
-  assert.match(dialog,/id="queueList"[\s\S]*?id="historyList"[\s\S]*?id="queuePagePrev"[\s\S]*?id="queuePageLabel"[\s\S]*?id="queuePageNext"[\s\S]*?id="historyClear"/);
+  assert.match(dialog,/id="queuePlay"[\s\S]*?id="historyClear"[\s\S]*?id="queueList"[\s\S]*?id="historyList"[\s\S]*?id="queuePagePrev"[\s\S]*?id="queuePageLabel"[\s\S]*?id="queuePageNext"/);
   assert.doesNotMatch(dialog,/<details/);
-  assert.match(html,/#queueHistoryToggle,#historyClear\{margin-left:auto/);
+  assert.match(html,/#queueHistoryToggle\{margin-left:auto/);
   assert.doesNotThrow(()=>new Function(js));
 });
 
-test('Play target comes from active list and current page',()=>{const {api,el}=harness();api.openMusicQueue();assert.equal(api.target(),'a');api.next();assert.equal(api.target(),'d');api.panel('history');assert.equal(api.target(),'h0');api.next();assert.equal(api.target(),'h3');assert.equal(el('queuePlay').textContent,'▶ Play');});
+test('Play target comes from active list and current page',()=>{const {api,el}=harness();api.openMusicQueue();assert.equal(api.target(),'a');api.next();assert.equal(api.target(),'d');api.panel('history');assert.equal(api.target(),'h0');api.next();assert.equal(api.target(),'h3');assert.equal(el('queuePlayText').textContent,'Play');});

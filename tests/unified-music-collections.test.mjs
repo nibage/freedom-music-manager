@@ -24,5 +24,5 @@ test('only one collection map, history stored separately',()=>{
   assert.doesNotMatch(html,/\bmusicPlaylists\b/);
   assert.match(html,/const MUSIC_HISTORY_FILE='music-history\.json'/);
   assert.match(html,/function saveAlbum\(name\)\{const members=albums\.get\(name\)[\s\S]*?body=\[\.\.\.members\]\.join/);
-  assert.match(html,/id="showAlbums"[^>]*>Music collections<\/button>/);
+  assert.match(html,/id="showAlbums"[^>]*>Collections<\/button>/);
 });
