@@ -163,6 +163,7 @@ try {
   });
   await page.locator('#playerCoverButton').click();
   await page.locator('#viewerPlayTrack').click();
+  await page.locator('#collectionDialogAccept').click();
   await page.waitForFunction(paths=>JSON.stringify(playerQueue)===JSON.stringify(paths)&&playerPath===paths[0]&&!playerAudio.paused&&Number.isFinite(playerAudio.duration),selectedWavs);
   await page.evaluate(()=>{playerAudio.currentTime=Math.max(0,playerAudio.duration-.15)});
   await page.waitForFunction(paths=>playerPath===paths[1]&&!playerAudio.paused&&Number.isFinite(playerAudio.duration),selectedWavs);
@@ -171,6 +172,18 @@ try {
   await page.locator('#closeViewer').click();
   await page.evaluate(()=>clearSelection());
   console.log('PASS: selected-only preview playback ends after exactly two tracks');
+  const preservedQueue=await page.evaluate(()=>{
+    const all=filtered.filter(x=>playerEligible(x.path)).map(x=>x.path);
+    setPlayerQueue(all);selectedPaths=new Set(all.slice(0,1));prepareTrack(all[0]);updateSelectionUI();return all;
+  });
+  await page.locator('#playerPlay').click();
+  await page.locator('#collectionDialogCancel').click();
+  await page.waitForFunction(paths=>JSON.stringify(playerQueue)===JSON.stringify(paths)&&playerOncePaths?.length===1&&!playerAudio.paused&&Number.isFinite(playerAudio.duration),preservedQueue);
+  await page.evaluate(()=>{playerAudio.currentTime=Math.max(0,playerAudio.duration-.15)});
+  await page.waitForFunction(paths=>!playerOncePaths&&!playerPath&&playerAudio.paused&&JSON.stringify(playerQueue)===JSON.stringify(paths),preservedQueue);
+  await page.evaluate(()=>clearSelection());
+  console.log('PASS: Play once stops without replacing existing queue');
+
   await page.locator('#playerQueueButton').click();
   // The hover membership badge must fit inside the Queue button, not shift the transport.
   await page.locator('#queueClose').click();

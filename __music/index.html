@@ -1798,7 +1798,7 @@ async function migrateMoves(selected,next){
   for(const name of changedAlbums)tasks.push(saveAlbum(name));
   const musicMoves=new Map(selected.map(({from,to})=>[from,to]));
   for(const [from,to] of musicMoves){const old=musicMetadataCache.get(from),stat=next.get(to);if(old&&stat&&old.size===stat.size&&old.modified===stat.modified){musicMetadataCache.set(to,old);musicMetadataCache.delete(from);scheduleMusicCacheSave()}}
-  playerQueue=remapMusicPaths(playerQueue,musicMoves);playerOriginalOrder=remapMusicPaths(playerOriginalOrder,musicMoves);
+  playerQueue=remapMusicPaths(playerQueue,musicMoves);playerOriginalOrder=remapMusicPaths(playerOriginalOrder,musicMoves);if(playerOncePaths)playerOncePaths=remapMusicPaths(playerOncePaths,musicMoves);
   if(musicMoves.has(playerPath))playerPath=musicMoves.get(playerPath);
   if(musicMoves.has(playerPreviewPath))playerPreviewPath=musicMoves.get(playerPreviewPath);
   if(musicCollectionsWritable){playerHistory=playerHistory.map(x=>({...x,path:musicMoves.get(x.path)||x.path}));tasks.push(saveMusicCollections().then(ok=>{if(!ok)throw Error('Could not save moved music collection references')}));}
@@ -2444,7 +2444,7 @@ function remapMusicPaths(paths,moves){return [...new Set(paths.map(p=>moves.get(
 
 /* END MUSIC PLAYER LOGIC */
 let playerPath=null,playerQueue=[],playerURL=null,playerRequest=0,playerLoading=false,playerWantsPlay=false,playerSeekActive=false;
-let lastPlayerVolume=.75,playerPreviewPath=null,playerSelectionKey=null;
+let lastPlayerVolume=.75,playerPreviewPath=null,playerSelectionKey=null,playerOncePaths=null,selectionPlayPrompt=false;
 let playerRepeat='off',playerShuffle=false,playerOriginalOrder=[],playerHistory=[],musicCollectionsWritable=false,musicHistoryRequest=-1,queuePage=0,historyPage=0,queuePanel='queue',queueSelectedPath=null,historySelectedEntry=null,queueCollectionMode='albums';
 const playerAudio=el('bigVideo');
 const playerVolumeKey='freedom-music-volume:'+GALLERY_URL;
@@ -2474,7 +2474,7 @@ function updatePlayerControls(){
   el('playerPlay').disabled=!pending&&!preview&&!active&&!playerQueue.some(playerEligible)&&!filtered.some(x=>playerEligible(x.path));
   el('playerStop').disabled=!active;el('playerCoverButton').disabled=!displayedPlayerPath();
   const now=el('playerNowPlaying');
-  now.textContent=preview?(shown?(playing?'Playing: ':'Current: ')+musicTitle(shown):'Ready to play'):'';
+  now.textContent=preview?(shown?(playing?'Playing: ':'Current: ')+musicTitle(shown):'Ready to play'):playerOncePaths?'Play once · original queue preserved':'';
   now.title=now.textContent;
   el('playerPrev').disabled=!active||(!nextPlayerPath(-1)&&playerAudio.currentTime<3);
   el('playerNext').disabled=!active||!nextPlayerPath(1);
@@ -2506,7 +2506,8 @@ function releasePlayerSource(){
   if(playerURL)URL.revokeObjectURL(playerURL);playerURL=null;
 }
 function stopMusic(clear=true){
-  playerSelectionKey=null;playerPreviewPath=null;++playerRequest;playerLoading=false;playerWantsPlay=false;playerSeekActive=false;releasePlayerSource();
+  if(playerOncePaths)playerPath=null;
+  playerOncePaths=null;playerSelectionKey=null;playerPreviewPath=null;++playerRequest;playerLoading=false;playerWantsPlay=false;playerSeekActive=false;releasePlayerSource();
   if(clear){playerPath=null;playerQueue=[];resetQueueOrder()}
   queueChanged();
   updatePlayerTrack();updatePlayerTime();
@@ -2529,7 +2530,7 @@ function dismissTrackPreview(){
 }
 async function startTrack(path,newQueue=true,keepPreview=false){
   if(!playerEligible(path)||deletingMedia||librarySwitching)return;
-  if(newQueue)playerSelectionKey=null;
+  if(newQueue){playerSelectionKey=null;playerOncePaths=null;}
   if(!keepPreview||playerPreviewPath===path)playerPreviewPath=null;
   if(path===playerPath&&(playerURL||playerLoading)){
     updatePlayerTrack();
@@ -2563,15 +2564,33 @@ function selectionPlaybackKey(paths){return JSON.stringify(paths)}
 function selectionPlaybackPending(paths){
   return paths.length>0&&(playerSelectionKey!==selectionPlaybackKey(paths)||!playerPath||!playerURL&&!playerLoading||playerAudio.ended);
 }
-function startSelectedPlayback(paths){
+function startSelectedPlayback(paths,once=false){
   if(!paths.length||deletingMedia||librarySwitching)return;
-  // A new explicit selection is a new finite queue, not an append or filtered-results snapshot.
-  playerRepeat='off';
-  setPlayerQueue(paths);
+  // Play once uses its own finite sequence, leaving the persistent queue and repeat settings intact.
+  if(once)playerOncePaths=paths.slice();
+  else{playerRepeat='off';setPlayerQueue(paths);}
+
   playerSelectionKey=selectionPlaybackKey(paths);
   const first=paths[0];
   if(first===playerPath&&playerURL&&!playerLoading)playerAudio.currentTime=0;
   void startTrack(first,false);
+}
+async function requestSelectedPlayback(paths){
+  paths=[...new Set(paths.filter(playerEligible))];
+  if(!paths.length||!root||deletingMedia||librarySwitching||selectionPlayPrompt)return;
+  if(!playerQueue.length||sameMusicOrder(playerQueue,paths)){startSelectedPlayback(paths);return}
+  const r=root;
+  selectionPlayPrompt=true;
+  try{
+    const choice=await galleryCollectionDialog({
+      title:'Existing playback queue',
+      message:'The queue contains '+playerQueue.length+' track(s). Play '+paths.length+' selected track(s) once without changing it, or replace the queue?',
+      action:'Replace queue',alternate:'Play once'
+    });
+    if(root!==r||deletingMedia||librarySwitching||!choice)return;
+    const valid=paths.filter(playerEligible);
+    if(valid.length)startSelectedPlayback(valid,choice==='alternate');
+  }finally{selectionPlayPrompt=false}
 }
 function viewerPlaybackPaths(){
   const selected=selectedPlaybackPaths();
@@ -2581,9 +2600,9 @@ function toggleViewerPlayback(){
   const paths=viewerPlaybackPaths();
   if(!paths.length)return;
   if(selectedPlaybackPaths().length){
-    if(selectionPlaybackPending(paths)){startSelectedPlayback(paths);return}
+    if(selectionPlaybackPending(paths))return requestSelectedPlayback(paths);
   }else if(currentPath!==playerPath||!playerURL&&!playerLoading||playerAudio.ended){
-    startSelectedPlayback(paths);return;
+    return requestSelectedPlayback(paths);
   }
   toggleActualPlayback();
 }
@@ -2596,10 +2615,17 @@ function toggleActualPlayback(){
 }
 function toggleMusic(){
   const paths=selectedPlaybackPaths();
-  if(selectionPlaybackPending(paths)){startSelectedPlayback(paths);return}
-  if(playerPreviewPath&&playerEligible(playerPreviewPath)){startSelectedPlayback([playerPreviewPath]);return}
+  if(selectionPlaybackPending(paths))return requestSelectedPlayback(paths);
+  if(playerPreviewPath&&playerEligible(playerPreviewPath))return requestSelectedPlayback([playerPreviewPath]);
   if(!playerPath){const queued=playerQueue.find(playerEligible);if(queued)void startTrack(queued,false);else{const first=filtered.find(x=>playerEligible(x.path));if(first)void startTrack(first.path)}return}
   toggleActualPlayback();
+}
+function finishMusicTrack(){
+  if(!playerOncePaths&&playerRepeat==='one'&&playerEligible(playerPath)){playerAudio.currentTime=0;void resumePlayer();return}
+  const next=nextPlayerPath(1);
+  if(next===playerPath&&next){playerAudio.currentTime=0;void resumePlayer()}
+  else if(next)void startTrack(next,false,true);
+  else if(playerOncePaths){stopMusic(false);queueNotice('Play once finished. Original queue preserved.')}
 }
 function stepMusic(step){
   if(!playerPath)return;
@@ -2641,7 +2667,7 @@ function initMusicPlayer(){
   playerAudio.addEventListener('timeupdate',()=>{updatePlayerTime();el('playerPrev').disabled=!playerPath||(!nextPlayerPath(-1)&&playerAudio.currentTime<3)});
   playerAudio.addEventListener('loadedmetadata',()=>{const item=byPath.get(playerPath),n=playerAudio.duration;if(item&&Number.isFinite(n)&&n>0){item.music={...item.music,duration:n};rememberPlaybackDuration(item,n);refreshMusicCaption(item);scheduleMusicFilterRefresh()}});
   playerAudio.addEventListener('playing',recordListening);
-  playerAudio.addEventListener('ended',()=>{if(playerRepeat==='one'&&playerEligible(playerPath)){playerAudio.currentTime=0;void resumePlayer();return}const next=nextPlayerPath(1);if(next===playerPath&&next){playerAudio.currentTime=0;void resumePlayer()}else if(next)void startTrack(next,false,true)});
+  playerAudio.addEventListener('ended',finishMusicTrack);
   playerAudio.addEventListener('error',()=>{if(playerPath&&playerURL)toast('This browser cannot play this audio format or codec. The original file is unchanged.')});
   const bar=el('musicPlayer'),measure=()=>document.documentElement.style.setProperty('--music-player-height',bar.getBoundingClientRect().height+'px');
   measure();if(window.ResizeObserver)new ResizeObserver(measure).observe(bar);else window.addEventListener('resize',measure);
@@ -2715,13 +2741,13 @@ function recordListening(){
   void saveMusicCollections();if(el('musicQueueDialog').open&&queuePanel==='history')renderHistory();
 }
 function resetQueueOrder(){playerShuffle=false;playerOriginalOrder=[]}
-function setPlayerQueue(paths){playerSelectionKey=null;playerQueue=[...new Set(paths)];resetQueueOrder();queuePage=0;queueChanged()}
+function setPlayerQueue(paths){playerOncePaths=null;playerSelectionKey=null;playerQueue=[...new Set(paths)];resetQueueOrder();queuePage=0;queueChanged()}
 function currentQueueSnapshot(path){
   playerQueue=snapshotTracks(filtered,path,playerEligible);queuePage=0;
   if(playerShuffle){playerOriginalOrder=playerQueue.slice();playerQueue=shuffleUpcoming(playerQueue,path)}else playerOriginalOrder=[];
   queueChanged();
 }
-function nextPlayerPath(step){return nextQueueTrack(playerQueue,playerPath,step,playerEligible,playerRepeat)}
+function nextPlayerPath(step){return nextQueueTrack(playerOncePaths||playerQueue,playerPath,step,playerEligible,playerOncePaths?'off':playerRepeat)}
 function queueChanged(){
   updateQueueMembershipAction();
   el('playerQueueButton').textContent='Queue ('+playerQueue.filter(playerEligible).length+')';
@@ -2813,6 +2839,7 @@ function updateQueuePlayButton(){
 }
 function playQueuePanelTrack(path){
   if(!playerEligible(path))return;
+  playerOncePaths=null;playerSelectionKey=null;
   // Replay history without replacing an existing queue.
   if(queuePanel==='history'&&!playerQueue.includes(path)){
     playerQueue=queueInsert(playerQueue,[path],playerPath,true,playerEligible);resetQueueOrder();
@@ -4169,13 +4196,13 @@ function editTags(){if(!currentPath)return;const arr=[...new Set(el('tagInput').
 function changeView(type){if(type==='favorites'||type==='trash'){chooseSpecialView(type);return;}clearSelection();resetCollections();visibleCount=80;renderAlbumList();renderTagList();filterAndRender(false,'filter')}
 function debounce(fn,ms){let timer;return(...a)=>{clearTimeout(timer);timer=setTimeout(()=>fn(...a),ms)}}
 // Browser-native hover tooltips are intentionally concise, with accessibility labels.
-function galleryCollectionDialog({title,message='',input=false,value='',action='Confirm',danger=false,maxLength=80,inputLabel='Collection name',readOnly=false,notice=false}={}){
+function galleryCollectionDialog({title,message='',input=false,value='',action='Confirm',danger=false,maxLength=80,inputLabel='Collection name',readOnly=false,notice=false,alternate=''}={}){
   return new Promise(resolve=>{
     const dialog=el('collectionDialog'),field=el('collectionDialogInput'),accept=el('collectionDialogAccept');
     el('collectionDialogTitle').textContent=title;
     el('collectionDialogMessage').textContent=message;
     field.hidden=!input;field.value=value;field.maxLength=maxLength;field.readOnly=readOnly;field.setAttribute('aria-label',input?inputLabel:'');
-    const cancelButton=el('collectionDialogCancel');cancelButton.style.display=notice?'none':'';
+    const cancelButton=el('collectionDialogCancel');cancelButton.style.display=notice?'none':'';cancelButton.textContent=alternate||'Cancel';
     accept.textContent=action;
     accept.className=danger?'btn danger':'btn primary';
     let settled=false;
@@ -4187,8 +4214,8 @@ function galleryCollectionDialog({title,message='',input=false,value='',action='
     const closed=()=>finish(input?null:false);
     const cleanup=()=>{dialog.removeEventListener('cancel',cancel);dialog.removeEventListener('click',backdrop);dialog.removeEventListener('close',closed);field.removeEventListener('keydown',key)};
     dialog.addEventListener('cancel',cancel);dialog.addEventListener('click',backdrop);dialog.addEventListener('close',closed);field.addEventListener('keydown',key);
-    el('collectionDialogX').onclick=no;el('collectionDialogCancel').onclick=no;accept.onclick=yes;
-    dialog.showModal();(input?field:(notice?accept:cancelButton)).focus();if(input)field.select();
+    el('collectionDialogX').onclick=no;el('collectionDialogCancel').onclick=alternate?()=>finish('alternate'):no;accept.onclick=yes;
+    dialog.showModal();(input?field:(notice?accept:alternate?el('collectionDialogX'):cancelButton)).focus();if(input)field.select();
   });
 }
 const TAG_CATALOG_NAME='tag-catalog.txt';

@@ -11,7 +11,7 @@ function harness({panel='queue',playing=false,selected=null,historySelected=null
     startTrack:(p,n)=>events.push(['start',p,n]),resetQueueOrder:()=>events.push('reset'),updatePlayerControls:()=>events.push('update')};
   const logic=js.slice(js.indexOf('function queueInsert('),js.indexOf('function shuffleUpcoming('));
   const api=new Function('env','const {el,playerEligible,playerAudio,startTrack,resetQueueOrder,updatePlayerControls}=env;'+
-    "const QUEUE_PAGE_SIZE=2;let queuePanel=env.panel,queuePage=0,historyPage=0,queueSelectedPath=env.selected,playerPath='a',playerQueue=['a','b','c'],playerHistory=[{path:'missing'},{path:'h'},{path:'i'}],historySelectedEntry=env.historySelected?playerHistory.find(e=>e.path===env.historySelected):null,playerLoading=false,playerWantsPlay=false;"+
+    "const QUEUE_PAGE_SIZE=2;let queuePanel=env.panel,queuePage=0,historyPage=0,queueSelectedPath=env.selected,playerPath='a',playerQueue=['a','b','c'],playerHistory=[{path:'missing'},{path:'h'},{path:'i'}],historySelectedEntry=env.historySelected?playerHistory.find(e=>e.path===env.historySelected):null,playerLoading=false,playerWantsPlay=false,playerOncePaths=null,playerSelectionKey=null;"+
     logic+source+";return {queueMembershipAction,queuePanelTarget,toggleQueuePanelPlayback,updateQueuePlayButton,queue:()=>playerQueue.slice()};")(env);
   return {...env,api};
 }

@@ -20,6 +20,7 @@ test('select all selects every filtered track beyond the rendered page, even in 
 test('selected playback uses finite queue and disables repeat on new selection',()=>{
   const source=js.slice(js.indexOf('function startSelectedPlayback('),js.indexOf('function viewerPlaybackPaths('));
   assert.match(source,/playerRepeat='off';[\s\S]*?setPlayerQueue\(paths\)/);
-  assert.match(js,/addEventListener\('ended',\(\)=>\{[\s\S]*?else if\(next\)void startTrack\(next,false,true\)\}\)/);
+  assert.match(js,/addEventListener\('ended',finishMusicTrack\)/);
+  assert.match(js,/function nextPlayerPath\(step\)\{return nextQueueTrack\(playerOncePaths\|\|playerQueue/);
   assert.doesNotThrow(()=>new Function(js));
 });
